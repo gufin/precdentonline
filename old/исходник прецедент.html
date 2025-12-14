@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Поиск судебной практики бесплатно онлайн</title>
+  <meta name="description" content="Бесплатный онлайн-сервис ждя поиска и анализа судебной практики. Найдите практику по спорам с контрагентами, налоговым проверкам, делам о банкротстве и госзакупкам.">
+  <link rel="icon" href="favicon.ico" type="image/x-icon">
+  <!-- Yandex.Metrika counter -->
+<script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=105676503', 'ym');
+
+    ym(105676503, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+</script>
+<noscript><div><img src="https://mc.yandex.ru/watch/105676503" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+<!-- /Yandex.Metrika counter -->
+  <style>
+    body {
+      font-family: "Segoe UI", Roboto, sans-serif;
+      background: #f5f7fa;
+      margin: 0;
+      padding: 40px;
+      color: #222;
+    }
+    h1 {
+      text-align: center;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    p.subtitle {
+      text-align: center;
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    /* ===== SEARCH AND FILTERS ===== */
+    .search-row, .filter-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      padding: 10px 14px;
+      font-size: 15px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    input { width: 360px; }
+    button {
+      background: #1a73e8;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    button:hover { background: #1259b3; }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-size: 13px;
+      color: #555;
+    }
+
+    /* ===== RESULTS GRID ===== */
+    .results {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 18px;
+      width: 360px;
+      transition: all .2s;
+      overflow: hidden;
+    }
+    .card:hover { transform: translateY(-3px); }
+    .card-header h3 {
+      color: #1a73e8;
+      margin: 0;
+      font-size: 17px;
+    }
+    .card-header p { margin: 3px 0; font-size: 14px; color: #555; }
+    .card-content {
+      max-height: 120px;
+      overflow: hidden;
+      white-space: pre-wrap;
+      font-size: 14px;
+      color: #444;
+      line-height: 1.4;
+    }
+    .read-more {
+      color: #1a73e8;
+      cursor: pointer;
+      display: inline-block;
+      margin-top: 10px;
+      font-weight: 600;
+    }
+
+    /* ===== MODAL ===== */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      width: 90%;
+      max-width: 800px;
+      max-height: 80vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 20px;
+      cursor: pointer;
+      color: #888;
+    }
+    mark {
+      background: yellow;
+      color: black;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Поиск судебной практики</h1>
+  <p class="subtitle">Введите запрос, например: <b>неосновательное обогащение</b></p>
+
+  <!-- SEARCH -->
+  <div class="search-row">
+    <input id="query" placeholder="Введите текст для поиска...">
+    <button id="searchBtn">Поиск</button>
+  </div>
+
+  <!-- FILTERS -->
+  <div class="filter-row" id="filters" style="display:none">
+    <label>Суд
+      <select id="courtFilter"><option value="">Все</option></select>
+    </label>
+    <label>Категория
+      <select id="categoryFilter"><option value="">Все</option></select>
+    </label>
+    <label>Судья
+      <select id="judgeFilter"><option value="">Все</option></select>
+    </label>
+    <label>Результат
+      <select id="resultFilter"><option value="">Все</option></select>
+    </label>
+    <button id="applyFilters">Фильтр</button>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results" class="results"></div>
+
+  <!-- MODAL -->
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeModal()">?</span>
+      <div id="modalText"></div>
+    </div>
+  </div>
+
+  <script>
+    let caseData = [];
+    let queryTerm = '';
+
+    const searchBtn = document.getElementById('searchBtn');
+    const queryInput = document.getElementById('query');
+    const resultsContainer = document.getElementById('results');
+    const filtersDiv = document.getElementById('filters');
+
+    const courtFilter = document.getElementById('courtFilter');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const judgeFilter = document.getElementById('judgeFilter');
+    const resultFilter = document.getElementById('resultFilter');
+    const applyFilters = document.getElementById('applyFilters');
+
+    const modal = document.getElementById('modal');
+    const modalText = document.getElementById('modalText');
+
+    searchBtn.addEventListener('click', async () => {
+      const query = queryInput.value.trim();
+      if (!query) return;
+
+      queryTerm = query.toLowerCase();
+      resultsContainer.innerHTML = "<p>Загрузка...</p>";
+
+      const url = `https://api.you-right.ru/gas/get_Document_By_Content?key=7bbace5900c34b2d87aa4c612ea356a0&content=${encodeURIComponent(query)}`;
+      const response = await fetch(url);
+      const buffer = await response.arrayBuffer();
+      const text = new TextDecoder('utf-8').decode(buffer);
+
+      try {
+        caseData = JSON.parse(text);
+      } catch {
+        resultsContainer.innerHTML = "<p>Ошибка чтения данных (кодировка).</p>";
+        return;
+      }
+
+      if (!caseData.length) {
+        resultsContainer.innerHTML = "<p>Ничего не найдено.</p>";
+        return;
+      }
+
+      populateFilters(caseData);
+      filtersDiv.style.display = "flex";
+      renderResults(caseData);
+    });
+
+    applyFilters.addEventListener('click', () => {
+      const filtered = caseData.filter(d => {
+        const c = d.data_json || {};
+        return (!courtFilter.value || c.court === courtFilter.value)
+            && (!categoryFilter.value || c.case_category_2 === categoryFilter.value)
+            && (!judgeFilter.value || c.judge === judgeFilter.value)
+            && (!resultFilter.value || c.issue_result === resultFilter.value);
+      });
+      renderResults(filtered);
+    });
+
+    function populateFilters(data) {
+      const unique = arr => Array.from(new Set(arr.filter(Boolean))).sort();
+      fillSelect(courtFilter, unique(data.map(d => d.data_json?.court)));
+      fillSelect(categoryFilter, unique(data.map(d => d.data_json?.case_category_2)));
+      fillSelect(judgeFilter, unique(data.map(d => d.data_json?.judge)));
+      fillSelect(resultFilter, unique(data.map(d => d.data_json?.issue_result)));
+    }
+
+    function fillSelect(select, items) {
+      const labelMap = {
+        courtFilter: 'Все суды',
+        categoryFilter: 'Все категории',
+        judgeFilter: 'Все судьи',
+        resultFilter: 'Все результаты'
+      };
+      select.innerHTML = `<option value="">${labelMap[select.id] || 'Все'}</option>`;
+      for (const item of items) {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.textContent = item;
+        select.appendChild(opt);
+      }
+    }
+
+    function renderResults(data) {
+      resultsContainer.innerHTML = data.map(d => {
+        const c = d.data_json || {};
+        const text = highlightQuery(d.content_act ? d.content_act.slice(0, 400) + "..." : "Нет текста");
+        return `
+          <div class="card">
+            <div class="card-header">
+              <h3>${c.court || "Неизвестный суд"}</h3>
+              <p><b>№:</b> ${d.case_number || "—"}</p>
+              <p><b>Судья:</b> ${c.judge || "—"}</p>
+              <p><b>Категория:</b> ${c.case_category_2 || "—"}</p>
+              <p><b>Результат:</b> ${c.issue_result || "—"}</p>
+              <p><b>Дата:</b> ${c.date_issue || "—"}</p>
+            </div>
+            <div class="card-content">${text}</div>
+            <span class="read-more" onclick="openModal(\`${escapeHtml(d.content_act || '')}\`)">Читать полностью</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function highlightQuery(text) {
+      if (!queryTerm || !text) return text;
+      const safe = escapeHtml(text);
+      const regex = new RegExp(`(${queryTerm})`, 'gi');
+      return safe.replace(regex, '<mark>$1</mark>');
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, m => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[m]));
+    }
+
+    function openModal(fullText) {
+      modal.style.display = "flex";
+      modalText.innerHTML = highlightQuery(fullText);
+    }
+
+    function closeModal() {
+      modal.style.display = "none";
+      modalText.innerHTML = "";
+    }
+
+    window.onclick = e => {
+      if (e.target === modal) closeModal();
+    };
+  </script>
+  
+  <p>Наша база судебных решений — рабочий инструмент для юристов компаний и руководителей. Найдите практику по спорам с контрагентами, налоговым проверкам, делам о банкротстве и госзакупкам. Проанализируйте позиции судов, чтобы оценить судебные перспективы и снизить риски.</p>
+  
+  <h2>Быстрый поиск решений по делам вашей компании</h2>
+
+<p>Введите в строку поиска предмет спора, номер дела, название компании или ОГРН. Система найдет решения арбитражных судов всех инстанций, включая Верховный Суд РФ.</p>
+
+<p>Используйте карточку расширенного поиска, чтобы отфильтровать дела:</p>
+<ul>
+<li>по дате и суду;</li>
+<li>по типу спора (договор, налоги, административное право);</li>
+<li>по участникам процесса.</li>
+</ul>
+<p>Это помогает быстро найти пример судебной практики по аналогичному спору и понять тактику оппонента.</p>
+
+ <h2>Правовой анализ для стратегии и отчетности</h2>
+
+<p>Изучите не только итоговое решение, но и его обоснование. Это поможет:</p>
+<ul>
+<li>Подготовить правовое заключение для руководства с оценкой шансов на успех.</li>
+<li>Составить иск или отзыв на иск, опираясь на релевантные прецеденты.</li>
+<li>Проанализировать судебную практику по конкретному судье или региону.</li>
+<li>Подготовить доклад для собственников бизнеса о судебных рисках.</li>
+</ul>
+
+<h2>Анализ практики Верховного Суда РФ для сложных споров</h2>
+
+<p>Изучайте позиции высшей инстанции по резонансным и системным вопросам. Это дает возможность:</p>
+<ul>
+<li>Аргументировать позицию в суде кассационной инстанции.</li>
+<li>Выработать единую линию защиты по нескольким однотипным делам компании.</li>
+<li>Предвидеть изменение трактовки норм права.</li>
+</ul>
+<h2>Результат для вас</h2>
+
+<p>Работа с сервисом экономит время юристов и деньги компании. Вы принимаете управленческие решения на основе судебной статистики, а не предположений. Снижаете число проигранных дел и финансовые потери.</p>
+
+<p>Начните поиск судебной практики. Введите запрос и проанализируйте первое дело.</p>
+</body>
+</html>
