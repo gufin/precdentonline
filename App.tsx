@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SearchIcon, ChevronDown, FilterIcon } from './components/Icons';
-import { fetchTotalCount, searchCases } from './services/api';
+import { fetchTotalCount, searchCases, semanticSearch } from './services/api';
 import { CaseRecord, FilterState, SortOption } from './types';
 import ResultCard from './components/ResultCard';
 import FilterPanel from './components/FilterPanel';
@@ -13,6 +13,7 @@ const App: React.FC = () => {
   const [totalCount, setTotalCount] = useState<string>('—');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchType, setSearchType] = useState<'semantic' | 'classic'>('semantic'); // Тип поиска
   
   // Data State
   const [allCases, setAllCases] = useState<CaseRecord[]>([]);
@@ -44,17 +45,53 @@ const App: React.FC = () => {
   // Handlers
   const handleSearch = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!query && !caseNumber) return;
-
+    
     setLoading(true);
     setError(null);
     setAllCases([]);
     setPage(1);
 
     try {
-      const results = await searchCases(query, caseNumber);
-      setAllCases(results);
-      setError(null);
+      if (searchType === 'semantic') {
+        // Семантический поиск
+        if (!query.trim()) {
+          setError('Для семантического поиска необходимо ввести текстовый запрос');
+          setLoading(false);
+          return;
+        }
+        
+        const searchFilters = {
+          date_from: filters.dateIssueFrom || filters.dateEntryFrom || undefined,
+          date_to: filters.dateIssueTo || filters.dateEntryTo || undefined,
+          court: filters.court || undefined,
+          doctype: filters.result || undefined,
+        };
+        
+        // Убираем undefined значения
+        const cleanFilters = Object.fromEntries(
+          Object.entries(searchFilters).filter(([_, v]) => v !== undefined && v !== '')
+        ) as any;
+        
+        const results = await semanticSearch({
+          query: query.trim(),
+          limit: 100,
+          min_score: 0.5,
+          filters: Object.keys(cleanFilters).length > 0 ? cleanFilters : null,
+        });
+        setAllCases(results);
+        setError(null);
+      } else {
+        // Классический поиск
+        if (!query.trim() && !caseNumber.trim()) {
+          setError('Введите текст запроса или номер дела');
+          setLoading(false);
+          return;
+        }
+        
+        const results = await searchCases(query.trim(), caseNumber.trim());
+        setAllCases(results);
+        setError(null);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Ошибка при выполнении поиска';
       setError(errorMessage);
@@ -77,15 +114,16 @@ const App: React.FC = () => {
   };
 
   // Derived Data (Filtering & Sorting)
+  // Примечание: при использовании семантического поиска фильтрация происходит на сервере,
+  // но оставляем клиентскую фильтрацию для дополнительных фильтров (judge, side)
   const processedData = useMemo(() => {
     let data = [...allCases];
 
-    // 1. Filter
+    // 1. Filter (только те фильтры, которые не поддерживаются сервером)
     data = data.filter(item => {
       const j = item.data_json;
-      if (filters.court && j.court !== filters.court) return false;
+      // court, result, date фильтры уже применены на сервере при семантическом поиске
       if (filters.judge && j.judge !== filters.judge) return false;
-      if (filters.result && j.issue_result !== filters.result) return false;
       
       if (filters.side) {
         const sideStr = JSON.stringify(j.sides).toLowerCase();
@@ -96,6 +134,15 @@ const App: React.FC = () => {
 
     // 2. Sort
     data.sort((a, b) => {
+      // При семантическом поиске можно сортировать по score
+      if (a.semanticData && b.semanticData && sortOption === 'date_desc') {
+        // По умолчанию семантический поиск возвращает отсортированные по релевантности
+        // Но можно пересортировать по дате
+        const dateA = a.data_json.date_issue?.split('.').reverse().join('') || '';
+        const dateB = b.data_json.date_issue?.split('.').reverse().join('') || '';
+        return dateB.localeCompare(dateA);
+      }
+      
       const dateA = a.data_json.date_issue?.split('.').reverse().join('') || '';
       const dateB = b.data_json.date_issue?.split('.').reverse().join('') || '';
       
@@ -145,6 +192,54 @@ const App: React.FC = () => {
           </div>
 
           <form onSubmit={handleSearch} className="relative w-full max-w-3xl mx-auto">
+             
+             {/* Переключатель типа поиска */}
+             <div className="flex flex-col items-center mb-4 space-y-2">
+               <div className="inline-flex bg-[#1c1c1e] rounded-full p-1 border border-white/5">
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setSearchType('semantic');
+                     setError(null);
+                     setAllCases([]);
+                     setCaseNumber(''); // Очищаем номер дела при переключении на семантический поиск
+                   }}
+                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                     searchType === 'semantic'
+                       ? 'bg-[#0A84FF] text-white shadow-lg shadow-blue-500/20'
+                       : 'text-[#86868b] hover:text-white'
+                   }`}
+                 >
+                   Семантический поиск
+                 </button>
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setSearchType('classic');
+                     setError(null);
+                     setAllCases([]);
+                   }}
+                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                     searchType === 'classic'
+                       ? 'bg-[#0A84FF] text-white shadow-lg shadow-blue-500/20'
+                       : 'text-[#86868b] hover:text-white'
+                   }`}
+                 >
+                   Классический поиск
+                 </button>
+               </div>
+               {searchType === 'semantic' && (
+                 <p className="text-xs text-[#86868b] text-center max-w-md">
+                   Поиск по смыслу запроса. Требует запущенный сервис семантического поиска.
+                 </p>
+               )}
+               {searchType === 'classic' && (
+                 <p className="text-xs text-[#86868b] text-center max-w-md">
+                   Традиционный поиск по ключевым словам и номерам дел.
+                 </p>
+               )}
+             </div>
+
              <div className="flex flex-col md:flex-row bg-[#1c1c1e] rounded-2xl md:rounded-full p-2 border border-white/5 focus-within:ring-2 focus-within:ring-[#0A84FF]/50 focus-within:border-[#0A84FF]/50 transition-all duration-300 shadow-2xl">
                 
                 <div className="flex-grow relative border-b md:border-b-0 md:border-r border-white/5">
@@ -152,20 +247,22 @@ const App: React.FC = () => {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Ключевые слова"
+                    placeholder={searchType === 'semantic' ? "Текстовый запрос (например: контрагент не оплатил поставку)" : "Ключевые слова"}
                     className="w-full h-12 px-6 bg-transparent text-white placeholder-[#6e6e73] focus:outline-none rounded-t-xl md:rounded-l-full"
                   />
                 </div>
 
-                <div className="w-full md:w-1/3 relative border-b md:border-b-0 md:border-r border-white/5">
-                   <input 
-                    type="text"
-                    value={caseNumber}
-                    onChange={(e) => setCaseNumber(e.target.value)}
-                    placeholder="Номер дела"
-                    className="w-full h-12 px-6 bg-transparent text-white placeholder-[#6e6e73] focus:outline-none"
-                  />
-                </div>
+                {searchType === 'classic' && (
+                  <div className="w-full md:w-1/3 relative border-b md:border-b-0 md:border-r border-white/5">
+                     <input 
+                      type="text"
+                      value={caseNumber}
+                      onChange={(e) => setCaseNumber(e.target.value)}
+                      placeholder="Номер дела"
+                      className="w-full h-12 px-6 bg-transparent text-white placeholder-[#6e6e73] focus:outline-none"
+                    />
+                  </div>
+                )}
 
                 <button 
                   type="submit"
@@ -253,8 +350,35 @@ const App: React.FC = () => {
 
         {/* State: Error */}
         {error && (
-          <div className="p-4 bg-red-900/20 border border-red-500/30 text-red-200 text-center rounded-2xl backdrop-blur-sm">
-            {error}
+          <div className="p-5 bg-red-900/20 border border-red-500/30 text-red-200 rounded-2xl backdrop-blur-sm animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-start space-x-3">
+              <svg className="w-6 h-6 text-red-400 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <div className="font-semibold mb-2 text-red-100">Ошибка {searchType === 'semantic' ? 'семантического' : ''} поиска</div>
+                <div className="text-sm leading-relaxed mb-3">{error}</div>
+                {error.includes('недоступен') && searchType === 'semantic' && (
+                  <div className="mt-3 pt-3 border-t border-red-500/20">
+                    <div className="text-xs text-red-300/80 mb-2">
+                      <strong>Что делать:</strong>
+                    </div>
+                    <ul className="text-xs text-red-300/70 space-y-1 list-disc list-inside">
+                      <li>Убедитесь, что сервис семантического поиска запущен</li>
+                      <li>Проверьте настройки подключения в конфигурации</li>
+                      <li>Или переключитесь на <button 
+                        onClick={() => {
+                          setSearchType('classic');
+                          setError(null);
+                        }}
+                        className="underline hover:text-red-100 font-medium"
+                      >классический поиск</button>
+                      </li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

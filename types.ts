@@ -28,6 +28,11 @@ export interface CaseRecord {
   case_number: string;
   content_act: string; // The text content
   data_json: CaseDataJson;
+  semanticData?: {
+    score: number;
+    highlights: string[];
+    snippet: string;
+  };
 }
 
 export interface FilterState {
@@ -49,4 +54,72 @@ export type SortOption = 'date_desc' | 'date_asc' | 'entry_desc' | 'entry_asc' |
 export interface SearchParams {
   query: string;
   caseNumber: string;
+}
+
+// Новые типы для семантического поиска
+export interface SearchFilters {
+  date_from?: string | null;
+  date_to?: string | null;
+  court?: string | null;
+  doctype?: string | null;
+}
+
+export interface SemanticSearchRequest {
+  query: string;
+  limit?: number; // 1-100
+  min_score?: number; // 0-1
+  filters?: SearchFilters | null;
+}
+
+export interface SearchResultItem {
+  document_id: string;
+  case_number: string;
+  court_name: string | null;
+  doc_date: string | null; // ISO 8601 format
+  score: number;
+  snippet: string;
+  highlights: string[];
+  url: string;
+  doctype: string | null;
+}
+
+export interface SemanticSearchResponse {
+  query: string;
+  took_ms: number;
+  items: SearchResultItem[];
+}
+
+// Адаптер для преобразования SearchResultItem в CaseRecord
+export function adaptSearchResultToCaseRecord(item: SearchResultItem): CaseRecord {
+  // Парсим дату из ISO формата в dd.mm.yyyy
+  const formatDate = (isoDate: string | null): string => {
+    if (!isoDate) return '';
+    try {
+      const date = new Date(isoDate);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    } catch {
+      return '';
+    }
+  };
+
+  return {
+    id: item.document_id,
+    case_number: item.case_number,
+    content_act: item.snippet, // Используем snippet как основной текст
+    data_json: {
+      court: item.court_name || undefined,
+      date_issue: formatDate(item.doc_date),
+      url: item.url,
+      issue_result: item.doctype || undefined,
+    },
+    // Дополнительные поля для семантического поиска
+    semanticData: {
+      score: item.score,
+      highlights: item.highlights,
+      snippet: item.snippet,
+    },
+  } as CaseRecord & { semanticData?: { score: number; highlights: string[]; snippet: string } };
 }

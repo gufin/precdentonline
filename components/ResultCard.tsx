@@ -9,19 +9,89 @@ interface ResultCardProps {
 }
 
 const ResultCard: React.FC<ResultCardProps> = ({ data, query, onClick }) => {
-  const { case_number, content_act, data_json } = data;
+  const { case_number, content_act, data_json, semanticData } = data;
 
-  const previewText = content_act.length > 300 
-    ? content_act.slice(0, 300) + '...' 
-    : content_act;
+  // Используем snippet из семантического поиска, если доступен
+  const previewText = semanticData?.snippet 
+    ? (semanticData.snippet.length > 300 ? semanticData.snippet.slice(0, 300) + '...' : semanticData.snippet)
+    : (content_act.length > 300 ? content_act.slice(0, 300) + '...' : content_act);
 
   const renderHighlighted = (text: string) => {
+    // Если есть highlights из семантического поиска, используем их
+    if (semanticData?.highlights && semanticData.highlights.length > 0) {
+      // Создаем массив частей текста с выделениями
+      const parts: Array<{ text: string; highlight: boolean }> = [];
+      let remainingText = text;
+      
+      // Сортируем highlights по длине (сначала длинные), чтобы избежать конфликтов
+      const sortedHighlights = [...semanticData.highlights].sort((a, b) => b.length - a.length);
+      
+      for (const highlight of sortedHighlights) {
+        const escaped = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`(${escaped})`, 'gi');
+        const newParts: Array<{ text: string; highlight: boolean }> = [];
+        
+        for (const part of parts.length > 0 ? parts : [{ text: remainingText, highlight: false }]) {
+          if (part.highlight) {
+            newParts.push(part);
+            continue;
+          }
+          
+          const matches = [...part.text.matchAll(regex)];
+          if (matches.length === 0) {
+            newParts.push(part);
+            continue;
+          }
+          
+          let lastIndex = 0;
+          for (const match of matches) {
+            if (match.index !== undefined) {
+              if (match.index > lastIndex) {
+                newParts.push({ text: part.text.slice(lastIndex, match.index), highlight: false });
+              }
+              newParts.push({ text: match[0], highlight: true });
+              lastIndex = match.index + match[0].length;
+            }
+          }
+          if (lastIndex < part.text.length) {
+            newParts.push({ text: part.text.slice(lastIndex), highlight: false });
+          }
+        }
+        
+        parts.length = 0;
+        parts.push(...newParts);
+      }
+      
+      if (parts.length === 0) {
+        parts.push({ text: remainingText, highlight: false });
+      }
+      
+      return (
+        <>
+          {parts.map((part, i) => 
+            part.highlight ? (
+              <span key={i} className="text-[#0A84FF] font-medium bg-[#0A84FF]/10 rounded px-0.5">
+                {part.text}
+              </span>
+            ) : (
+              <React.Fragment key={i}>{part.text}</React.Fragment>
+            )
+          )}
+        </>
+      );
+    }
+    
+    // Старое выделение по query
     if (!query) return text;
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
-    return parts.map((part, i) => 
-      part.toLowerCase() === query.toLowerCase() 
-        ? <span key={i} className="text-[#0A84FF] font-medium bg-[#0A84FF]/10 rounded px-0.5">{part}</span> 
-        : part
+    return (
+      <>
+        {parts.map((part, i) => 
+          part.toLowerCase() === query.toLowerCase() 
+            ? <span key={i} className="text-[#0A84FF] font-medium bg-[#0A84FF]/10 rounded px-0.5">{part}</span> 
+            : <React.Fragment key={i}>{part}</React.Fragment>
+        )}
+      </>
     );
   };
 
@@ -67,6 +137,12 @@ const ResultCard: React.FC<ResultCardProps> = ({ data, query, onClick }) => {
           <p className="text-[13px] leading-relaxed text-[#a1a1a6] font-normal line-clamp-4">
             {renderHighlighted(previewText)}
           </p>
+          {/* Показываем score для семантического поиска */}
+          {semanticData && (
+            <div className="mt-2 text-[10px] text-[#6e6e73]">
+              Релевантность: {(semanticData.score * 100).toFixed(0)}%
+            </div>
+          )}
         </div>
         
         {/* Footer */}
