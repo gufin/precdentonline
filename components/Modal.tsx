@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { CaseRecord } from '../types';
 import { XIcon, SparklesIcon, FileTextIcon } from './Icons';
+import { fetchCaseText } from '../services/api';
 
 interface ModalProps {
   data: CaseRecord | null;
@@ -10,6 +11,27 @@ interface ModalProps {
 
 const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [fullText, setFullText] = useState<string | null>(null);
+  const [loadingText, setLoadingText] = useState(false);
+  const [textError, setTextError] = useState<string | null>(null);
+
+  const loadFullText = async (caseNumber: string) => {
+    setLoadingText(true);
+    setTextError(null);
+    try {
+      const result = await fetchCaseText(caseNumber);
+      if (result.found && result.text) {
+        setFullText(result.text);
+      } else {
+        setTextError('Полный текст документа не найден');
+      }
+    } catch (error) {
+      console.error('Failed to load full text:', error);
+      setTextError(error instanceof Error ? error.message : 'Не удалось загрузить полный текст');
+    } finally {
+      setLoadingText(false);
+    }
+  };
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -18,16 +40,31 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
     if (data) {
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleEscape);
+      
+      // Если это семантический поиск (есть semanticData), загружаем полный текст
+      if (data.semanticData && data.case_number) {
+        loadFullText(data.case_number);
+      } else {
+        // Для классического поиска используем content_act как есть
+        setFullText(null);
+        setLoadingText(false);
+        setTextError(null);
+      }
     }
     return () => {
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleEscape);
+      setFullText(null);
+      setTextError(null);
     };
   }, [data, onClose]);
 
   if (!data) return null;
 
   const { data_json, content_act, case_number } = data;
+  
+  // Используем полный текст, если загружен, иначе используем content_act
+  const displayText = fullText !== null ? fullText : content_act;
 
   const highlightText = (text: string) => {
     if (!query) return text;
@@ -99,7 +136,25 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
 
           {/* Text Body */}
           <div className="prose prose-invert prose-sm max-w-none text-[#d1d1d6] leading-relaxed">
-             <p className="whitespace-pre-wrap font-light text-[15px]">{highlightText(content_act)}</p>
+            {loadingText ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center space-y-3">
+                  <div className="w-8 h-8 border-2 border-[#0A84FF]/30 border-t-[#0A84FF] rounded-full animate-spin" />
+                  <p className="text-sm text-[#86868b]">Загрузка полного текста документа...</p>
+                </div>
+              </div>
+            ) : textError ? (
+              <div className="p-4 bg-red-900/20 border border-red-500/30 text-red-200 rounded-xl">
+                <p className="text-sm">{textError}</p>
+                {data.semanticData && (
+                  <p className="text-xs mt-2 text-red-300/70">
+                    Показан фрагмент из результатов поиска. Полный текст может быть доступен по ссылке "Оригинал документа".
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap font-light text-[15px]">{highlightText(displayText)}</p>
+            )}
           </div>
 
         </div>

@@ -31,15 +31,7 @@ app.use((req, res, next) => {
 // Раздача статических файлов из dist (для продакшена)
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Для всех остальных маршрутов отдаем index.html (SPA routing)
-app.get('*', (req, res) => {
-  // Пропускаем API маршруты
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: 'API endpoint not found' });
-  }
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-});
-
+// API маршруты должны быть определены ПЕРЕД общим маршрутом '*'
 app.get('/api/count', async (_req, res) => {
   if (!API_KEY) {
     return res.status(500).json({ error: 'API_KEY не задан' });
@@ -111,11 +103,13 @@ app.post('/api/v1/search', async (req, res) => {
   try {
     const url = `${SEMANTIC_API_BASE}/api/v1/search`;
     
-    // Устанавливаем таймаут для запроса
+    // Устанавливаем таймаут для запроса (увеличиваем до 30 секунд для медленных запросов)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 секунд
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд
     
     try {
+      console.log(`[Semantic API] Making request to ${url} with body:`, JSON.stringify(req.body));
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -128,6 +122,8 @@ app.post('/api/v1/search', async (req, res) => {
 
       clearTimeout(timeoutId);
       
+      console.log(`[Semantic API] Response status: ${response.status} ${response.statusText}`);
+      
       // Проверяем, что ответ - это JSON
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
@@ -135,6 +131,82 @@ app.post('/api/v1/search', async (req, res) => {
         console.error('Semantic API returned non-JSON:', text.substring(0, 200));
         return res.status(502).json({ 
           error: 'Семантический поиск недоступен',
+          details: 'API вернул неверный формат ответа'
+        });
+      }
+
+      const data = await response.json();
+      
+      // Передаем ответ от API как есть, даже если это ошибка 500
+      // Клиент сам обработает ошибку
+      if (!response.ok) {
+        console.log(`[Semantic API] Error response:`, JSON.stringify(data).substring(0, 200));
+        return res.status(response.status).json(data);
+      }
+
+      console.log(`[Semantic API] Success, items count:`, data.items?.length || 0);
+      return res.json(data);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      console.error('[Semantic API] Fetch error:', fetchError.name, fetchError.message, fetchError.code);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('Semantic API timeout');
+        return res.status(504).json({ 
+          error: 'Семантический поиск недоступен',
+          details: 'Превышено время ожидания ответа от API'
+        });
+      }
+      
+      // ECONNREFUSED или другие сетевые ошибки
+      if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('fetch failed') || fetchError.message.includes('ECONNREFUSED')) {
+        console.error('Semantic API connection refused:', fetchError.message);
+        return res.status(503).json({ 
+          error: 'Семантический поиск недоступен',
+          details: `Не удалось подключиться к API по адресу ${SEMANTIC_API_BASE}. Убедитесь, что сервис запущен.`
+        });
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('semantic search error', error);
+    return res.status(500).json({ 
+      error: 'Не удалось выполнить семантический поиск',
+      details: error.message 
+    });
+  }
+});
+
+// Прокси для получения полного текста дела
+app.get('/api/v1/cases/:case_number', async (req, res) => {
+  try {
+    const { case_number } = req.params;
+    const url = `${SEMANTIC_API_BASE}/api/v1/cases/${encodeURIComponent(case_number)}`;
+    
+    // Устанавливаем таймаут для запроса
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 секунд
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'X-API-Key': SEMANTIC_API_KEY,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      
+      // Проверяем, что ответ - это JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error('Semantic API returned non-JSON:', text.substring(0, 200));
+        return res.status(502).json({ 
+          error: 'Сервис недоступен',
           details: 'API вернул неверный формат ответа'
         });
       }
@@ -152,7 +224,7 @@ app.post('/api/v1/search', async (req, res) => {
       if (fetchError.name === 'AbortError') {
         console.error('Semantic API timeout');
         return res.status(504).json({ 
-          error: 'Семантический поиск недоступен',
+          error: 'Сервис недоступен',
           details: 'Превышено время ожидания ответа от API'
         });
       }
@@ -161,7 +233,7 @@ app.post('/api/v1/search', async (req, res) => {
       if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('fetch failed')) {
         console.error('Semantic API connection refused:', fetchError.message);
         return res.status(503).json({ 
-          error: 'Семантический поиск недоступен',
+          error: 'Сервис недоступен',
           details: `Не удалось подключиться к API по адресу ${SEMANTIC_API_BASE}. Убедитесь, что сервис запущен.`
         });
       }
@@ -169,12 +241,18 @@ app.post('/api/v1/search', async (req, res) => {
       throw fetchError;
     }
   } catch (error) {
-    console.error('semantic search error', error);
+    console.error('get case text error', error);
     return res.status(500).json({ 
-      error: 'Не удалось выполнить семантический поиск',
+      error: 'Не удалось получить текст дела',
       details: error.message 
     });
   }
+});
+
+// Для всех остальных маршрутов отдаем index.html (SPA routing)
+// Этот маршрут должен быть ПОСЛЕДНИМ, чтобы не перехватывать API маршруты
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 app.listen(port, () => {

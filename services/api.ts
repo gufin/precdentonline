@@ -7,8 +7,9 @@ const CONFIG = {
   searchEndpoint: '/api/search',
   countEndpoint: '/api/count',
   // Новый API семантического поиска
-  useSemanticProxy: true, // Использовать прокси через server.js для обхода CORS
+  useSemanticProxy: false, // Прямое обращение к API (CORS разрешен)
   semanticApiBase: import.meta.env.VITE_SEMANTIC_API_BASE || 'http://195.35.56.180', // Базовый URL нового API
+  semanticApiKey: import.meta.env.VITE_SEMANTIC_API_KEY || '3a6fe05a871834862d13c3497a5df8c273e50e5d0aa67d8f0a7ef05a013ce93b', // API ключ для семантического поиска
   semanticSearchEndpoint: '/api/v1/search',
 };
 
@@ -168,21 +169,23 @@ export const searchCases = async (query: string, caseNumber: string): Promise<Ca
 /**
  * Семантический поиск по новому API
  */
-export const semanticSearch = async (request: SemanticSearchRequest): Promise<CaseRecord[]> => {
-  // Используем прокси через server.js или прямое обращение
-  const url = CONFIG.useSemanticProxy
-    ? CONFIG.semanticSearchEndpoint // Прокси через server.js
-    : `${CONFIG.semanticApiBase}${CONFIG.semanticSearchEndpoint}`; // Прямое обращение
+export const semanticSearch = async (request: SemanticSearchRequest, retryWithLowerLimit: boolean = false): Promise<CaseRecord[]> => {
+  // Прямое обращение к API (CORS разрешен)
+  const url = `${CONFIG.semanticApiBase}${CONFIG.semanticSearchEndpoint}`;
+  
+  // Если это retry, уменьшаем лимит
+  const limit = retryWithLowerLimit ? Math.min(request.limit || 20, 10) : (request.limit || 20);
   
   try {
     const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'X-API-Key': CONFIG.semanticApiKey, // Добавляем API ключ
       },
       body: JSON.stringify({
         query: request.query,
-        limit: request.limit || 20,
+        limit: limit,
         min_score: request.min_score ?? 0.5,
         filters: request.filters || null,
       }),
@@ -217,13 +220,28 @@ export const semanticSearch = async (request: SemanticSearchRequest): Promise<Ca
         }
       }
       
-      // Добавляем информацию о статусе для 503/504/502
+      // Добавляем информацию о статусе для различных ошибок
       if (res.status === 503) {
         errorMessage = `Семантический поиск недоступен: ${errorMessage}`;
       } else if (res.status === 504) {
         errorMessage = `Превышено время ожидания ответа от сервиса семантического поиска`;
       } else if (res.status === 502) {
         errorMessage = `Сервис семантического поиска вернул неверный ответ: ${errorMessage}`;
+      } else if (res.status === 500) {
+        // Специальная обработка для ошибок 500 от API
+        if ((errorMessage.includes('timed out') || errorMessage.includes('timeout') || errorMessage.includes('Vector search failed')) && !retryWithLowerLimit && limit > 10) {
+          // Пробуем еще раз с меньшим лимитом
+          console.log(`[Semantic Search] Retrying with lower limit (${limit} -> 10)`);
+          return semanticSearch({ ...request, limit: 10 }, true);
+        }
+        
+        if (errorMessage.includes('timed out') || errorMessage.includes('timeout')) {
+          errorMessage = `Поиск занял слишком много времени. Попробуйте упростить запрос или уменьшить количество результатов.`;
+        } else if (errorMessage.includes('Vector search failed')) {
+          errorMessage = `Ошибка при выполнении семантического поиска. Сервис временно перегружен. Попробуйте позже или используйте классический поиск.`;
+        } else {
+          errorMessage = `Ошибка сервиса семантического поиска: ${errorMessage}`;
+        }
       }
       
       throw new Error(errorMessage);
@@ -240,12 +258,73 @@ export const semanticSearch = async (request: SemanticSearchRequest): Promise<Ca
   } catch (error) {
     // Обработка сетевых ошибок (когда fetch вообще не может выполниться)
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Семантический поиск недоступен: не удалось подключиться к серверу. Проверьте, что прокси-сервер запущен на порту 3001.');
+      throw new Error('Семантический поиск недоступен: не удалось подключиться к серверу.');
     }
     
     if (error instanceof Error) {
       throw error;
     }
     throw new Error('Не удалось выполнить семантический поиск');
+  }
+};
+
+/**
+ * Получение полного текста дела по номеру
+ */
+export const fetchCaseText = async (caseNumber: string): Promise<{ case_number: string; text: string; found: boolean }> => {
+  // Прямое обращение к API (CORS разрешен)
+  const url = `${CONFIG.semanticApiBase}/api/v1/cases/${encodeURIComponent(caseNumber)}`;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': CONFIG.semanticApiKey,
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorMessage = `Ошибка сервера: ${res.status} ${res.statusText}`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage = errorJson.error;
+          if (errorJson.details) {
+            errorMessage += `. ${errorJson.details}`;
+          }
+        } else if (errorJson.detail) {
+          if (Array.isArray(errorJson.detail)) {
+            errorMessage = errorJson.detail.map((d: any) => d.msg || d.message).join(', ');
+          } else if (typeof errorJson.detail === 'string') {
+            errorMessage = errorJson.detail;
+          }
+        }
+      } catch {
+        if (errorText && !errorText.trim().startsWith('<!')) {
+          errorMessage = errorText;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await res.json();
+    
+    if (!data || typeof data !== 'object') {
+      throw new Error('Неверный формат ответа от API');
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Сервис недоступен: не удалось подключиться к серверу.');
+    }
+    
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Не удалось получить текст дела');
   }
 };
