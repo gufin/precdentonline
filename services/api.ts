@@ -8,7 +8,7 @@ const CONFIG = {
   countEndpoint: '/api/count',
   // Новый API семантического поиска
   useSemanticProxy: false, // Прямое обращение к API (CORS разрешен)
-  semanticApiBase: import.meta.env.VITE_SEMANTIC_API_BASE || 'http://195.35.56.180', // Базовый URL нового API
+  semanticApiBase: import.meta.env.VITE_SEMANTIC_API_BASE || 'https://semsearch.ru', // Базовый URL семантического API
   semanticApiKey: import.meta.env.VITE_SEMANTIC_API_KEY || '3a6fe05a871834862d13c3497a5df8c273e50e5d0aa67d8f0a7ef05a013ce93b', // API ключ для семантического поиска
   semanticSearchEndpoint: '/api/v1/search',
 };

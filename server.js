@@ -11,7 +11,7 @@ const port = process.env.PORT || 3001; // Different port from Vite dev server
 
 const API_BASE = process.env.API_BASE || 'https://api.you-right.ru/gas';
 const API_KEY = process.env.API_KEY || '';
-const SEMANTIC_API_BASE = process.env.SEMANTIC_API_BASE || 'http://195.35.56.180'; // Онлайн API семантического поиска
+const SEMANTIC_API_BASE = process.env.SEMANTIC_API_BASE || 'https://semsearch.ru'; // API семантического поиска
 const SEMANTIC_API_KEY = process.env.SEMANTIC_API_KEY || '3a6fe05a871834862d13c3497a5df8c273e50e5d0aa67d8f0a7ef05a013ce93b'; // Ключ для семантического API
 
 // JSON body parser

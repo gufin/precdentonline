@@ -57,11 +57,13 @@ export interface SearchParams {
 }
 
 // Новые типы для семантического поиска
+// Фильтры для семантического поиска (соответствуют API semsearch.ru)
 export interface SearchFilters {
-  date_from?: string | null;
-  date_to?: string | null;
-  court?: string | null;
-  doctype?: string | null;
+  date_from?: string | null;     // Дата от (ISO 8601: YYYY-MM-DD)
+  date_to?: string | null;       // Дата до (ISO 8601: YYYY-MM-DD)
+  court?: string | null;         // Точное совпадение названия суда
+  doctype?: string | null;       // Тип документа (Решение, Постановление, etc.)
+  categories?: string[] | null;  // Категории дел (OR условие)
 }
 
 export interface SemanticSearchRequest {
@@ -81,6 +83,7 @@ export interface SearchResultItem {
   highlights: string[];
   url: string;
   doctype: string | null;
+  categories?: string[] | null; // Категории дела
 }
 
 export interface SemanticSearchResponse {
@@ -114,6 +117,8 @@ export function adaptSearchResultToCaseRecord(item: SearchResultItem): CaseRecor
       date_issue: formatDate(item.doc_date),
       url: item.url,
       issue_result: item.doctype || undefined,
+      // Категории дела сохраняем в case_category_2 (как строку через запятую)
+      case_category_2: item.categories?.join(', ') || undefined,
     },
     // Дополнительные поля для семантического поиска
     semanticData: {
