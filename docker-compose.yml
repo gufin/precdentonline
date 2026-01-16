@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: precedent-online-dev
+    
+    # Проброс портов
+    ports:
+      - "3001:3001"  # Backend API
+      - "5173:5173"  # Frontend Vite dev server
+    
+    # Volume mounts для hot-reload
+    volumes:
+      # Монтируем весь проект для отслеживания изменений
+      - ./:/app
+      # Исключаем node_modules через named volume для избежания конфликтов с хост ОС
+      - /app/node_modules
+    
+    # Загрузка переменных окружения из .env файла
+    env_file:
+      - .env
+    
+    # Healthcheck для мониторинга состояния backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3001/api/count"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Автоматический рестарт при сбоях
+    restart: unless-stopped
+    
+    # Дополнительные настройки для development
+    environment:
+      - NODE_ENV=development
+    
+    # Подключаем stdin/tty для интерактивного режима
+    stdin_open: true
+    tty: true

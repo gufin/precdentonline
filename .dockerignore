@@ -1,0 +1,59 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist
+build
+*.local
+
+# Environment variables (безопасность)
+.env
+.env.local
+.env.*.local
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+coverage
+*.test.ts
+*.spec.ts
+__tests__
+.nyc_output
+
+# Logs
+logs
+*.log
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# OpenSpec (не нужны в контейнере)
+openspec
+
+# Documentation
+README.md
+AGENTS.md
+*.md
+
+# Old files
+old
+
+# Docker files themselves
+Dockerfile
+docker-compose.yml
+.dockerignore
