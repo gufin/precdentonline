@@ -128,3 +128,68 @@ export function adaptSearchResultToCaseRecord(item: SearchResultItem): CaseRecor
     },
   } as CaseRecord & { semanticData?: { score: number; highlights: string[]; snippet: string } };
 }
+
+// Типы для AI-анализа судебных решений (Recognition API)
+
+// Запрос на запуск анализа
+export interface RecognitionRequest {
+  recognitionFunctionName: string; // Обычно "Резюмировать решение"
+  fileData: string; // Полный текст судебного решения
+}
+
+// Ответ при запуске анализа (содержит requestID для polling)
+export interface RecognitionStartResponse {
+  requestID: string;
+}
+
+// Ответ при проверке статуса
+export interface RecognitionStatusResponse {
+  status: string; // "В обработке", "Завершен", "Ошибка"
+  result?: {
+    Результат?: string; // JSON в виде строки с результатами анализа (новый формат)
+    СтрокаJson?: string; // JSON в виде строки с результатами анализа (старый формат)
+    РаспознанныйТекст?: string; // Исходный текст решения
+    ОписаниеОшибки?: string; // Описание ошибки (если есть)
+  };
+}
+
+// Структура результата AI-анализа (парсится из result.СтрокаJson)
+export interface AIAnalysisResult {
+  супер_краткая_фабула_дела?: string;
+  'Супер-краткая фабула дела'?: string; // Старый формат (для совместимости)
+  
+  позиции_и_доводы_сторон?: {
+    [key: string]: string;
+  };
+  'Позиции и доводы сторон'?: {
+    [key: string]: string;
+  };
+  
+  мотивировка_суда?: string;
+  'Мотивировка суда (Почему так решили?)'?: string;
+  
+  резолютивная_часть?: {
+    победитель?: string;
+    Победитель?: string;
+    суммы?: {
+      [key: string]: string;
+    };
+    Суммы?: {
+      [key: string]: string;
+    };
+    другие_действия?: string;
+    'Другие действия'?: string;
+  };
+  'Резолютивная часть (Итог и Деньги)'?: {
+    Победитель?: string;
+    победитель?: string;
+    Суммы?: {
+      [key: string]: string;
+    };
+    суммы?: {
+      [key: string]: string;
+    };
+    'Другие действия'?: string;
+    другие_действия?: string;
+  };
+}

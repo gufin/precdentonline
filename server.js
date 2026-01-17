@@ -13,6 +13,8 @@ const API_BASE = process.env.API_BASE || 'https://api.you-right.ru/gas';
 const API_KEY = process.env.API_KEY || '';
 const SEMANTIC_API_BASE = process.env.SEMANTIC_API_BASE || 'https://semsearch.ru'; // API семантического поиска
 const SEMANTIC_API_KEY = process.env.SEMANTIC_API_KEY || '3a6fe05a871834862d13c3497a5df8c273e50e5d0aa67d8f0a7ef05a013ce93b'; // Ключ для семантического API
+const RECOGNITION_API_BASE = process.env.RECOGNITION_API_BASE || 'https://dev.you-right.ru/ur_ai_api/hs/RecognitionService'; // API для AI-анализа решений
+const RECOGNITION_API_TOKEN = process.env.RECOGNITION_API_TOKEN || 'Bearer ew0KImFsZyI6ICJIUzI1NiIsDQoidHlwIjogIkpXVCINCn0.ew0KImp0aSI6ICI0MjMwNTE0OC1hOTViLTQzNDItODM5Mi1lYjg1YWQ2YTk4N2YiLA0KImV4cCI6IDE4MDg5NDI0MDAsDQoiYXVkIjogIkxMTV9SZWNvZ25pdGlvblNlcnZpY2UiLA0KInN1YiI6ICJBZG1pbiIsDQoibmJmIjogMTc2ODY0OTk0MywNCiJpYXQiOiAxNzY4NjQ5OTQzLA0KImlzcyI6ICJzc2wiDQp9.lXJlUG4GApPW145B6902x7sZ9Y--jl9rSCi6m3wwjUY'; // Bearer token для Recognition API
 
 // JSON body parser
 app.use(express.json());
@@ -244,6 +246,157 @@ app.get('/api/v1/cases/:case_number', async (req, res) => {
     console.error('get case text error', error);
     return res.status(500).json({ 
       error: 'Не удалось получить текст дела',
+      details: error.message 
+    });
+  }
+});
+
+// Прокси для запуска AI-анализа судебного решения
+app.post('/api/ai-analysis/recognize', async (req, res) => {
+  try {
+    const { recognitionFunctionName, fileData } = req.body;
+    
+    if (!fileData) {
+      return res.status(400).json({ error: 'Отсутствует текст решения для анализа' });
+    }
+    
+    const url = `${RECOGNITION_API_BASE}/recognize`;
+    
+    console.log(`[Recognition API] Starting analysis with function: ${recognitionFunctionName}`);
+    
+    // Устанавливаем таймаут для запроса (увеличен до 90 секунд для AI-анализа)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 секунд
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': RECOGNITION_API_TOKEN,
+        },
+        body: JSON.stringify({
+          recognitionFunctionName: recognitionFunctionName || 'Резюмировать решение',
+          fileData,
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      
+      console.log(`[Recognition API] Response status: ${response.status} ${response.statusText}`);
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error(`[Recognition API] Error response:`, JSON.stringify(data).substring(0, 200));
+        return res.status(response.status).json(data);
+      }
+
+      console.log(`[Recognition API] Success, requestID:`, data.requestID);
+      return res.json(data);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('Recognition API timeout');
+        return res.status(504).json({ 
+          error: 'Сервис AI-анализа недоступен',
+          details: 'Превышено время ожидания ответа от API'
+        });
+      }
+      
+      if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('fetch failed')) {
+        console.error('Recognition API connection refused:', fetchError.message);
+        return res.status(503).json({ 
+          error: 'Сервис AI-анализа недоступен',
+          details: `Не удалось подключиться к API по адресу ${RECOGNITION_API_BASE}`
+        });
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('recognition start error', error);
+    return res.status(500).json({ 
+      error: 'Не удалось запустить AI-анализ',
+      details: error.message 
+    });
+  }
+});
+
+// Прокси для проверки статуса AI-анализа
+app.get('/api/ai-analysis/status', async (req, res) => {
+  try {
+    const { requestID } = req.query;
+    
+    if (!requestID) {
+      return res.status(400).json({ error: 'Отсутствует requestID' });
+    }
+    
+    const url = `${RECOGNITION_API_BASE}/recognize?requestID=${encodeURIComponent(requestID)}`;
+    
+    console.log(`[Recognition API] Checking status for requestID: ${requestID}`);
+    
+    // Устанавливаем таймаут для запроса (увеличен до 90 секунд для AI-анализа)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90 секунд
+    
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': RECOGNITION_API_TOKEN,
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error(`[Recognition API] Error response:`, JSON.stringify(data).substring(0, 200));
+        return res.status(response.status).json(data);
+      }
+
+      console.log(`[Recognition API] Status:`, data.status);
+      
+      // Логируем структуру ответа при статусе "Завершен"
+      if (data.status === 'Завершен') {
+        console.log(`[Recognition API] Result keys:`, data.result ? Object.keys(data.result) : 'no result');
+        if (data.result && data.result.СтрокаJson) {
+          console.log(`[Recognition API] СтрокаJson length:`, data.result.СтрокаJson.length);
+          console.log(`[Recognition API] СтрокаJson preview:`, data.result.СтрокаJson.substring(0, 100));
+        }
+      }
+      
+      return res.json(data);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('Recognition API timeout');
+        return res.status(504).json({ 
+          error: 'Сервис AI-анализа недоступен',
+          details: 'Превышено время ожидания ответа от API'
+        });
+      }
+      
+      if (fetchError.code === 'ECONNREFUSED' || fetchError.message.includes('fetch failed')) {
+        console.error('Recognition API connection refused:', fetchError.message);
+        return res.status(503).json({ 
+          error: 'Сервис AI-анализа недоступен',
+          details: `Не удалось подключиться к API по адресу ${RECOGNITION_API_BASE}`
+        });
+      }
+      
+      throw fetchError;
+    }
+  } catch (error) {
+    console.error('recognition status error', error);
+    return res.status(500).json({ 
+      error: 'Не удалось проверить статус AI-анализа',
       details: error.message 
     });
   }

@@ -35,6 +35,7 @@ services:
     # Дополнительные настройки для development
     environment:
       - NODE_ENV=development
+      - NODE_TLS_REJECT_UNAUTHORIZED=0  # Отключаем проверку SSL для dev.you-right.ru (самоподписанный сертификат)
     
     # Подключаем stdin/tty для интерактивного режима
     stdin_open: true

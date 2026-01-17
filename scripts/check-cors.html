@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORS Test</title>
+</head>
+<body>
+    <h1>Testing CORS to Recognition API</h1>
+    <button onclick="testAPI()">Test API</button>
+    <pre id="result"></pre>
+    
+    <script>
+    async function testAPI() {
+        const result = document.getElementById('result');
+        result.textContent = 'Testing...';
+        
+        try {
+            const response = await fetch('https://dev.you-right.ru/ur_ai_api/hs/RecognitionService/recognize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ew0KImFsZyI6ICJIUzI1NiIsDQoidHlwIjogIkpXVCINCn0.ew0KImp0aSI6ICI0MjMwNTE0OC1hOTViLTQzNDItODM5Mi1lYjg1YWQ2YTk4N2YiLA0KImV4cCI6IDE4MDg5NDI0MDAsDQoiYXVkIjogIkxMTV9SZWNvZ25pdGlvblNlcnZpY2UiLA0KInN1YiI6ICJBZG1pbiIsDQoibmJmIjogMTc2ODY0OTk0MywNCiJpYXQiOiAxNzY4NjQ5OTQzLA0KImlzcyI6ICJzc2wiDQp9.lXJlUG4GApPW145B6902x7sZ9Y--jl9rSCi6m3wwjUY'
+                },
+                body: JSON.stringify({
+                    recognitionFunctionName: 'Резюмировать решение',
+                    fileData: 'test'
+                })
+            });
+            
+            result.textContent = `Status: ${response.status}\n${await response.text()}`;
+        } catch (error) {
+            result.textContent = `Error: ${error.message}\n${error.stack}`;
+        }
+    }
+    </script>
+</body>
+</html>

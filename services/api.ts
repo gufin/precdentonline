@@ -1,4 +1,13 @@
-import { CaseRecord, SemanticSearchRequest, SemanticSearchResponse, adaptSearchResultToCaseRecord } from '../types';
+import { 
+  CaseRecord, 
+  SemanticSearchRequest, 
+  SemanticSearchResponse, 
+  adaptSearchResultToCaseRecord,
+  RecognitionRequest,
+  RecognitionStartResponse,
+  RecognitionStatusResponse,
+  AIAnalysisResult
+} from '../types';
 
 const CONFIG = {
   useProxy: true, // Использовать прокси через server.js для обхода CORS
@@ -327,4 +336,182 @@ export const fetchCaseText = async (caseNumber: string): Promise<{ case_number: 
     }
     throw new Error('Не удалось получить текст дела');
   }
+};
+
+/**
+ * Запуск AI-анализа судебного решения
+ * Возвращает requestID для последующего polling
+ */
+export const startRecognition = async (text: string): Promise<string> => {
+  // Прямой URL к Recognition API (CORS включен на сервере)
+  const url = 'https://dev.you-right.ru/ur_ai_api/hs/RecognitionService/recognize';
+  
+  // API токен
+  const token = 'Bearer ew0KImFsZyI6ICJIUzI1NiIsDQoidHlwIjogIkpXVCINCn0.ew0KImp0aSI6ICI0MjMwNTE0OC1hOTViLTQzNDItODM5Mi1lYjg1YWQ2YTk4N2YiLA0KImV4cCI6IDE4MDg5NDI0MDAsDQoiYXVkIjogIkxMTV9SZWNvZ25pdGlvblNlcnZpY2UiLA0KInN1YiI6ICJBZG1pbiIsDQoibmJmIjogMTc2ODY0OTk0MywNCiJpYXQiOiAxNzY4NjQ5OTQzLA0KImlzcyI6ICJzc2wiDQp9.lXJlUG4GApPW145B6902x7sZ9Y--jl9rSCi6m3wwjUY';
+  
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token,
+      },
+      body: JSON.stringify({
+        recognitionFunctionName: 'Резюмировать решение',
+        fileData: text,
+      } as RecognitionRequest),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      const errorMessage = errorData.error || `Ошибка сервера: ${res.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const data: RecognitionStartResponse = await res.json();
+    
+    if (!data.requestID) {
+      throw new Error('Не получен requestID от сервера');
+    }
+
+    return data.requestID;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Не удалось подключиться к сервису анализа');
+    }
+    
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Не удалось запустить AI-анализ');
+  }
+};
+
+/**
+ * Проверка статуса AI-анализа по requestID
+ */
+export const checkRecognitionStatus = async (requestID: string): Promise<RecognitionStatusResponse> => {
+  // Прямой URL к Recognition API (CORS включен на сервере)
+  const url = `https://dev.you-right.ru/ur_ai_api/hs/RecognitionService/recognize?requestID=${encodeURIComponent(requestID)}`;
+  
+  // API токен
+  const token = 'Bearer ew0KImFsZyI6ICJIUzI1NiIsDQoidHlwIjogIkpXVCINCn0.ew0KImp0aSI6ICI0MjMwNTE0OC1hOTViLTQzNDItODM5Mi1lYjg1YWQ2YTk4N2YiLA0KImV4cCI6IDE4MDg5NDI0MDAsDQoiYXVkIjogIkxMTV9SZWNvZ25pdGlvblNlcnZpY2UiLA0KInN1YiI6ICJBZG1pbiIsDQoibmJmIjogMTc2ODY0OTk0MywNCiJpYXQiOiAxNzY4NjQ5OTQzLA0KImlzcyI6ICJzc2wiDQp9.lXJlUG4GApPW145B6902x7sZ9Y--jl9rSCi6m3wwjUY';
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Authorization': token,
+      },
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({ error: 'Неизвестная ошибка' }));
+      const errorMessage = errorData.error || `Ошибка сервера: ${res.status}`;
+      throw new Error(errorMessage);
+    }
+
+    const data: RecognitionStatusResponse = await res.json();
+    console.log('Recognition status check response:', JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Не удалось подключиться к сервису анализа');
+    }
+    
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Не удалось проверить статус анализа');
+  }
+};
+
+/**
+ * Polling механизм с exponential backoff для получения результата анализа
+ * Возвращает распарсенный результат или выбрасывает ошибку при таймауте/ошибке
+ */
+export const pollRecognitionStatus = async (
+  requestID: string,
+  onProgress?: (progress: number) => void
+): Promise<AIAnalysisResult> => {
+  const maxAttempts = 60; // Максимум 60 попыток (~3 минуты)
+  let attempt = 0;
+
+  // Функция для вычисления задержки с exponential backoff
+  const getDelay = (attemptNum: number): number => {
+    if (attemptNum < 10) return 2000;  // Первые 10 попыток: 2 секунды
+    if (attemptNum < 30) return 3000;  // Следующие 20 попыток: 3 секунды
+    return 5000;                        // Последние 30 попыток: 5 секунд
+  };
+
+  while (attempt < maxAttempts) {
+    try {
+      const response = await checkRecognitionStatus(requestID);
+      
+      // Проверяем статус
+      if (response.status === 'Завершен') {
+        console.log('Recognition completed. Full response:', JSON.stringify(response, null, 2));
+        
+        // Проверяем наличие результата
+        if (!response.result) {
+          console.error('No result field in response');
+          throw new Error('Результат анализа отсутствует');
+        }
+
+        // Проверяем на ошибку в результате
+        if (response.result.ОписаниеОшибки && response.result.ОписаниеОшибки.trim()) {
+          console.error('Error in result:', response.result.ОписаниеОшибки);
+          throw new Error(response.result.ОписаниеОшибки);
+        }
+
+        // Парсим JSON из строки
+        // API может возвращать результат в поле "Результат" или "СтрокаJson"
+        const jsonString = response.result.Результат || response.result.СтрокаJson;
+        
+        if (!jsonString) {
+          console.error('No Результат or СтрокаJson in result. Result object:', JSON.stringify(response.result, null, 2));
+          throw new Error('Отсутствует результат анализа в ответе');
+        }
+
+        try {
+          const parsedResult: AIAnalysisResult = JSON.parse(jsonString);
+          console.log('Parsed AI analysis result:', parsedResult);
+          return parsedResult;
+        } catch (parseError) {
+          console.error('Failed to parse result JSON:', parseError);
+          console.error('Raw JSON string:', jsonString);
+          throw new Error('Не удалось обработать результат анализа');
+        }
+      } else if (response.status === 'Ошибка') {
+        const errorDesc = response.result?.ОписаниеОшибки || 'Неизвестная ошибка при анализе';
+        throw new Error(errorDesc);
+      }
+
+      // Статус "В обработке" или другой - продолжаем polling
+      attempt++;
+      
+      if (attempt >= maxAttempts) {
+        throw new Error('Анализ занял слишком много времени (более 3 минут). Попробуйте позже или обратитесь в поддержку');
+      }
+
+      // Сообщаем о прогрессе в процентах
+      if (onProgress) {
+        const progress = Math.min(Math.round((attempt / maxAttempts) * 100), 99);
+        onProgress(progress);
+      }
+
+      // Ждем перед следующей попыткой
+      const delay = getDelay(attempt);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } catch (error) {
+      // Если это наша ошибка (таймаут, ошибка парсинга и т.д.), пробрасываем дальше
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Не удалось получить результат анализа');
+    }
+  }
+
+  // Этот код недостижим, но TypeScript требует return
+  throw new Error('Превышено максимальное количество попыток');
 };

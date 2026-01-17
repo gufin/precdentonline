@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CaseRecord } from '../types';
+import { CaseRecord, AIAnalysisResult } from '../types';
 import { XIcon, SparklesIcon, FileTextIcon } from './Icons';
-import { fetchCaseText } from '../services/api';
+import { fetchCaseText, startRecognition, pollRecognitionStatus } from '../services/api';
 
 interface ModalProps {
   data: CaseRecord | null;
@@ -9,11 +9,19 @@ interface ModalProps {
   query: string;
 }
 
+// Тип состояния AI-анализа
+type AIAnalysisState =
+  | { status: 'idle' }
+  | { status: 'loading'; message: string }
+  | { status: 'success'; data: AIAnalysisResult }
+  | { status: 'error'; error: string };
+
 const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
   const modalRef = useRef<HTMLDivElement>(null);
   const [fullText, setFullText] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
+  const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisState>({ status: 'idle' });
 
   const loadFullText = async (caseNumber: string) => {
     setLoadingText(true);
@@ -33,6 +41,65 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
     }
   };
 
+  // Обработчик запуска AI-анализа
+  const handleStartAIAnalysis = async () => {
+    // Проверяем наличие текста для анализа
+    const textToAnalyze = fullText !== null ? fullText : content_act;
+    
+    if (!textToAnalyze || textToAnalyze.trim().length === 0) {
+      setAiAnalysis({
+        status: 'error',
+        error: 'Полный текст решения недоступен для анализа'
+      });
+      return;
+    }
+
+    // Если текст еще загружается, показываем ошибку
+    if (loadingText) {
+      setAiAnalysis({
+        status: 'error',
+        error: 'Дождитесь загрузки полного текста документа'
+      });
+      return;
+    }
+
+    // Запускаем анализ
+    setAiAnalysis({
+      status: 'loading',
+      message: 'Анализируем решение...'
+    });
+
+    try {
+      // Запускаем анализ и получаем requestID
+      const requestID = await startRecognition(textToAnalyze);
+      
+      // Начинаем polling для получения результата
+      const result = await pollRecognitionStatus(requestID, (progress) => {
+        setAiAnalysis({
+          status: 'loading',
+          message: `Анализируем решение... ${progress}%`
+        });
+      });
+
+      // Устанавливаем успешный результат
+      setAiAnalysis({
+        status: 'success',
+        data: result
+      });
+    } catch (error) {
+      console.error('AI Analysis error:', error);
+      setAiAnalysis({
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Не удалось выполнить AI-анализ'
+      });
+    }
+  };
+
+  // Обработчик повторной попытки
+  const handleRetryAIAnalysis = () => {
+    handleStartAIAnalysis();
+  };
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -40,6 +107,9 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
     if (data) {
       document.body.style.overflow = 'hidden';
       window.addEventListener('keydown', handleEscape);
+      
+      // Сбрасываем состояние AI-анализа при открытии новой карточки
+      setAiAnalysis({ status: 'idle' });
       
       // Если это семантический поиск (есть semanticData), загружаем полный текст
       if (data.semanticData && data.case_number) {
@@ -114,6 +184,180 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-8 scrollbar-hide">
           
+          {/* AI Analysis Section - показываем в начале */}
+          {aiAnalysis.status !== 'idle' && (
+            <div className="p-6 bg-black/30 rounded-2xl border border-[#0A84FF]/20">
+              <div className="flex items-center space-x-2 mb-4">
+                <SparklesIcon className="w-5 h-5 text-[#0A84FF]" />
+                <h3 className="text-lg font-semibold text-white">AI-анализ решения</h3>
+              </div>
+
+              {/* Loading State */}
+              {aiAnalysis.status === 'loading' && (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <div className="relative w-16 h-16 mb-4">
+                    <svg className="w-16 h-16 transform -rotate-90">
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        className="text-[#0A84FF]/20"
+                      />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="28"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 28}`}
+                        strokeDashoffset={`${2 * Math.PI * 28 * (1 - parseInt(aiAnalysis.message.match(/\d+/)?.[0] || '0') / 100)}`}
+                        className="text-[#0A84FF] transition-all duration-300"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white font-bold text-sm">
+                        {aiAnalysis.message.match(/\d+/)?.[0] || '0'}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-[#86868b]">{aiAnalysis.message}</p>
+                </div>
+              )}
+
+              {/* Error State */}
+              {aiAnalysis.status === 'error' && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-900/20 border border-red-500/30 text-red-200 rounded-xl">
+                    <p className="text-sm">{aiAnalysis.error}</p>
+                  </div>
+                  <button
+                    onClick={handleRetryAIAnalysis}
+                    className="px-4 py-2 bg-[#0A84FF] text-white text-sm font-semibold rounded-lg hover:bg-[#0071e3] transition-colors"
+                  >
+                    Повторить попытку
+                  </button>
+                </div>
+              )}
+
+              {/* Success State - Display Results */}
+              {aiAnalysis.status === 'success' && (
+                <div className="space-y-6">
+                  {/* Фабула дела */}
+                  {(aiAnalysis.data.супер_краткая_фабула_дела || aiAnalysis.data['Супер-краткая фабула дела']) && (
+                    <div className="p-4 bg-[#0A84FF]/10 border border-[#0A84FF]/30 rounded-xl">
+                      <h4 className="text-xs uppercase tracking-widest text-[#0A84FF] mb-2 font-semibold">
+                        Супер-краткая фабула дела
+                      </h4>
+                      <p className="text-sm text-white leading-relaxed">
+                        {aiAnalysis.data.супер_краткая_фабула_дела || aiAnalysis.data['Супер-краткая фабула дела']}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Позиции сторон */}
+                  {(aiAnalysis.data.позиции_и_доводы_сторон || aiAnalysis.data['Позиции и доводы сторон']) && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
+                        Позиции и доводы сторон
+                      </h4>
+                      <div className="space-y-3">
+                        {Object.entries(aiAnalysis.data.позиции_и_доводы_сторон || aiAnalysis.data['Позиции и доводы сторон'] || {}).map(([party, position]) => (
+                          <div key={party} className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                            <h5 className="text-sm font-semibold text-white mb-2">{party}</h5>
+                            <p className="text-sm text-[#d1d1d6] leading-relaxed">{position}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Мотивировка суда */}
+                  {(aiAnalysis.data.мотивировка_суда || aiAnalysis.data['Мотивировка суда (Почему так решили?)']) && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
+                        Мотивировка суда
+                      </h4>
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-sm text-[#d1d1d6] leading-relaxed">
+                          {aiAnalysis.data.мотивировка_суда || aiAnalysis.data['Мотивировка суда (Почему так решили?)']}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Резолютивная часть */}
+                  {(aiAnalysis.data.резолютивная_часть || aiAnalysis.data['Резолютивная часть (Итог и Деньги)']) && (
+                    <div>
+                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
+                        Резолютивная часть
+                      </h4>
+                      <div className="p-4 bg-[#30d158]/10 border border-[#30d158]/30 rounded-xl space-y-3">
+                        {/* Победитель */}
+                        {(() => {
+                          const resolutivePart = aiAnalysis.data.резолютивная_часть || aiAnalysis.data['Резолютивная часть (Итог и Деньги)'];
+                          const winner = resolutivePart?.победитель || resolutivePart?.Победитель;
+                          return winner ? (
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-[#30d158] mb-1 font-semibold">
+                                Победитель
+                              </p>
+                              <p className="text-sm text-white font-medium">{winner}</p>
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {/* Суммы */}
+                        {(() => {
+                          const resolutivePart = aiAnalysis.data.резолютивная_часть || aiAnalysis.data['Резолютивная часть (Итог и Деньги)'];
+                          const amounts = resolutivePart?.суммы || resolutivePart?.Суммы;
+                          return amounts ? (
+                            <div>
+                              <p className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
+                                Суммы
+                              </p>
+                              <div className="space-y-1">
+                                {Object.entries(amounts).map(([label, amount]) => (
+                                  <div key={label} className="flex justify-between items-baseline">
+                                    <span className="text-xs text-[#86868b]">{label}:</span>
+                                    <span
+                                      className={`text-sm ${
+                                        label.toLowerCase().includes('итог')
+                                          ? 'text-white font-bold text-base'
+                                          : 'text-[#d1d1d6]'
+                                      }`}
+                                    >
+                                      {amount}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null;
+                        })()}
+
+                        {/* Другие действия */}
+                        {(() => {
+                          const resolutivePart = aiAnalysis.data.резолютивная_часть || aiAnalysis.data['Резолютивная часть (Итог и Деньги)'];
+                          const otherActions = resolutivePart?.другие_действия || resolutivePart?.['Другие действия'];
+                          return otherActions ? (
+                            <div className="pt-2 border-t border-white/10">
+                              <p className="text-xs text-[#86868b] leading-relaxed">{otherActions}</p>
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Sides */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-black/20 rounded-2xl border border-white/5">
              <div>
@@ -171,7 +415,11 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
             <span>Оригинал документа</span>
           </a>
 
-          <button className="flex items-center space-x-2 px-5 py-2.5 bg-[#0A84FF] text-white text-sm font-semibold rounded-full shadow-lg shadow-blue-500/20 hover:bg-[#0071e3] transition-all duration-200">
+          <button 
+            onClick={handleStartAIAnalysis}
+            disabled={aiAnalysis.status === 'loading'}
+            className="flex items-center space-x-2 px-5 py-2.5 bg-[#0A84FF] text-white text-sm font-semibold rounded-full shadow-lg shadow-blue-500/20 hover:bg-[#0071e3] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             <SparklesIcon className="w-4 h-4" />
             <span>AI Анализ</span>
           </button>
