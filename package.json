@@ -8,7 +8,9 @@
     "dev:server": "node server.js",
     "dev:all": "concurrently \"npm run dev:server\" \"npm run dev\"",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "./deploy.sh",
+    "deploy:build": "npm run build && npm run deploy"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
