@@ -153,43 +153,31 @@ export interface RecognitionStatusResponse {
   };
 }
 
-// Структура результата AI-анализа (парсится из result.СтрокаJson)
+// Структура результата AI-анализа (парсится из result.Результат)
 export interface AIAnalysisResult {
   супер_краткая_фабула_дела?: string;
-  'Супер-краткая фабула дела'?: string; // Старый формат (для совместимости)
   
   позиции_и_доводы_сторон?: {
-    [key: string]: string;
-  };
-  'Позиции и доводы сторон'?: {
-    [key: string]: string;
+    истец?: string;
+    ответчик?: string;
+    [key: string]: string | undefined;
   };
   
-  мотивировка_суда?: string;
-  'Мотивировка суда (Почему так решили?)'?: string;
+  мотивировка_суда?: {
+    ключевые_причины?: string;
+    нормы_права?: string;
+    отклонение_доводов?: string;
+    [key: string]: string | undefined;
+  } | string; // Может быть объектом или строкой
   
   резолютивная_часть?: {
-    победитель?: string;
-    Победитель?: string;
-    суммы?: {
-      [key: string]: string;
-    };
-    Суммы?: {
-      [key: string]: string;
-    };
+    результат?: string;
     другие_действия?: string;
-    'Другие действия'?: string;
-  };
-  'Резолютивная часть (Итог и Деньги)'?: {
-    Победитель?: string;
-    победитель?: string;
-    Суммы?: {
-      [key: string]: string;
-    };
     суммы?: {
-      [key: string]: string;
+      основной_долг?: string;
+      неустойка_штраф?: string;
+      [key: string]: string | undefined;
     };
-    'Другие действия'?: string;
-    другие_действия?: string;
+    [key: string]: any;
   };
 }
