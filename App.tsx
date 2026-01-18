@@ -239,11 +239,11 @@ const App: React.FC = () => {
                    Классический поиск
                  </button>
                </div>
-               {searchType === 'semantic' && (
-                 <p className="text-xs text-[#86868b] text-center max-w-md">
-                   Поиск по смыслу запроса. Требует запущенный сервис семантического поиска.
-                 </p>
-               )}
+              {searchType === 'semantic' && (
+                <p className="text-xs text-[#86868b] text-center max-w-md">
+                  Умный поиск по смыслу — находит релевантные решения даже без точных совпадений
+                </p>
+              )}
                {searchType === 'classic' && (
                  <p className="text-xs text-[#86868b] text-center max-w-md">
                    Традиционный поиск по ключевым словам и номерам дел.
