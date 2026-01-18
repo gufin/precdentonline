@@ -23,16 +23,6 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
   const [textError, setTextError] = useState<string | null>(null);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisState>({ status: 'idle' });
 
-  // Безопасная функция для отображения значений (строка или объект)
-  const safeRender = (value: any): string => {
-    if (typeof value === 'string') return value;
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'object' && value !== null) {
-      return JSON.stringify(value, null, 2);
-    }
-    return '';
-  };
-
   const loadFullText = async (caseNumber: string) => {
     setLoadingText(true);
     setTextError(null);
@@ -258,142 +248,56 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
               {aiAnalysis.status === 'success' && (
                 <div className="space-y-6">
                   {/* Фабула дела */}
-                  {aiAnalysis.data.супер_краткая_фабула_дела && (
+                  {aiAnalysis.data.summary && (
                     <div className="p-4 bg-[#0A84FF]/10 border border-[#0A84FF]/30 rounded-xl">
                       <h4 className="text-xs uppercase tracking-widest text-[#0A84FF] mb-2 font-semibold">
-                        Супер-краткая фабула дела
+                        📋 Супер-краткая фабула дела
                       </h4>
                       <p className="text-sm text-white leading-relaxed whitespace-pre-wrap">
-                        {aiAnalysis.data.супер_краткая_фабула_дела}
+                        {aiAnalysis.data.summary}
                       </p>
                     </div>
                   )}
 
-                  {/* Позиции сторон */}
-                  {aiAnalysis.data.позиции_и_доводы_сторон && (
-                    <div>
-                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
-                        Позиции и доводы сторон
+                  {/* Позиции и доводы сторон */}
+                  {aiAnalysis.data.arguments && (
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
+                        ⚖️ Позиции и доводы сторон
                       </h4>
-                      <div className="space-y-3">
-                        {aiAnalysis.data.позиции_и_доводы_сторон.истец && (
-                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <h5 className="text-sm font-semibold text-white mb-2">Истец</h5>
-                            <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                              {aiAnalysis.data.позиции_и_доводы_сторон.истец}
-                            </p>
-                          </div>
-                        )}
-                        {aiAnalysis.data.позиции_и_доводы_сторон.ответчик && (
-                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <h5 className="text-sm font-semibold text-white mb-2">Ответчик</h5>
-                            <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                              {aiAnalysis.data.позиции_и_доводы_сторон.ответчик}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
+                        {aiAnalysis.data.arguments}
+                      </p>
                     </div>
                   )}
 
                   {/* Мотивировка суда */}
-                  {aiAnalysis.data.мотивировка_суда && (
-                    <div>
-                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
-                        Мотивировка суда
+                  {aiAnalysis.data.reasoning && (
+                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
+                        🔍 Мотивировка суда
                       </h4>
-                      <div className="space-y-3">
-                        {typeof aiAnalysis.data.мотивировка_суда === 'object' ? (
-                          <>
-                            {aiAnalysis.data.мотивировка_суда.ключевые_причины && (
-                              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                                <h5 className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
-                                  Ключевые причины
-                                </h5>
-                                <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                                  {aiAnalysis.data.мотивировка_суда.ключевые_причины}
-                                </p>
-                              </div>
-                            )}
-                            {aiAnalysis.data.мотивировка_суда.нормы_права && (
-                              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                                <h5 className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
-                                  Нормы права
-                                </h5>
-                                <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                                  {aiAnalysis.data.мотивировка_суда.нормы_права}
-                                </p>
-                              </div>
-                            )}
-                            {aiAnalysis.data.мотивировка_суда.отклонение_доводов && (
-                              <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                                <h5 className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
-                                  Отклонение доводов
-                                </h5>
-                                <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                                  {aiAnalysis.data.мотивировка_суда.отклонение_доводов}
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
-                              {aiAnalysis.data.мотивировка_суда}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <p className="text-sm text-[#d1d1d6] leading-relaxed whitespace-pre-wrap">
+                        {aiAnalysis.data.reasoning}
+                      </p>
                     </div>
                   )}
 
                   {/* Резолютивная часть */}
-                  {aiAnalysis.data.резолютивная_часть && (
-                    <div>
-                      <h4 className="text-xs uppercase tracking-widest text-[#86868b] mb-3 font-semibold">
-                        Резолютивная часть
+                  {aiAnalysis.data.resolution && (
+                    <div className="p-4 bg-[#30d158]/10 border border-[#30d158]/30 rounded-xl">
+                      <h4 className="text-xs uppercase tracking-widest text-[#30d158] mb-2 font-semibold">
+                        ✅ Резолютивная часть
                       </h4>
-                      <div className="p-4 bg-[#30d158]/10 border border-[#30d158]/30 rounded-xl space-y-3">
-                        {/* Результат */}
-                        {aiAnalysis.data.резолютивная_часть.результат && (
-                          <div>
-                            <p className="text-xs uppercase tracking-widest text-[#30d158] mb-1 font-semibold">
-                              Результат
-                            </p>
-                            <p className="text-sm text-white font-medium whitespace-pre-wrap">
-                              {aiAnalysis.data.резолютивная_часть.результат}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Суммы */}
-                        {aiAnalysis.data.резолютивная_часть.суммы && (
-                          <div>
-                            <p className="text-xs uppercase tracking-widest text-[#86868b] mb-2 font-semibold">
-                              Суммы
-                            </p>
-                            <div className="space-y-1">
-                              {Object.entries(aiAnalysis.data.резолютивная_часть.суммы).map(([label, amount]) => (
-                                <div key={label} className="flex justify-between items-baseline gap-4">
-                                  <span className="text-xs text-[#86868b] capitalize">{label.replace(/_/g, ' ')}:</span>
-                                  <span className="text-sm text-[#d1d1d6] font-medium text-right">
-                                    {amount}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Другие действия */}
-                        {aiAnalysis.data.резолютивная_часть.другие_действия && (
-                          <div className="pt-2 border-t border-white/10">
-                            <p className="text-xs text-[#86868b] leading-relaxed whitespace-pre-wrap">
-                              {aiAnalysis.data.резолютивная_часть.другие_действия}
-                            </p>
-                          </div>
-                        )}
-                      </div>
+                      <div 
+                        className="text-sm text-white leading-relaxed whitespace-pre-wrap"
+                        dangerouslySetInnerHTML={{
+                          __html: aiAnalysis.data.resolution.replace(
+                            /\*\*(.+?)\*\*/g,
+                            '<strong class="text-[#30d158] font-bold text-base">$1</strong>'
+                          )
+                        }}
+                      />
                     </div>
                   )}
                 </div>

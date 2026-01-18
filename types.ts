@@ -154,30 +154,10 @@ export interface RecognitionStatusResponse {
 }
 
 // Структура результата AI-анализа (парсится из result.Результат)
+// API возвращает JSON с фиксированными английскими ключами
 export interface AIAnalysisResult {
-  супер_краткая_фабула_дела?: string;
-  
-  позиции_и_доводы_сторон?: {
-    истец?: string;
-    ответчик?: string;
-    [key: string]: string | undefined;
-  };
-  
-  мотивировка_суда?: {
-    ключевые_причины?: string;
-    нормы_права?: string;
-    отклонение_доводов?: string;
-    [key: string]: string | undefined;
-  } | string; // Может быть объектом или строкой
-  
-  резолютивная_часть?: {
-    результат?: string;
-    другие_действия?: string;
-    суммы?: {
-      основной_долг?: string;
-      неустойка_штраф?: string;
-      [key: string]: string | undefined;
-    };
-    [key: string]: any;
-  };
+  summary?: string;      // Супер-краткая фабула дела
+  arguments?: string;    // Позиции и доводы сторон
+  reasoning?: string;    // Мотивировка суда
+  resolution?: string;   // Резолютивная часть
 }

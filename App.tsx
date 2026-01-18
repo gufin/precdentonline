@@ -60,16 +60,27 @@ const App: React.FC = () => {
           return;
         }
         
-        const searchFilters = {
-          date_from: filters.dateIssueFrom || filters.dateEntryFrom || undefined,
-          date_to: filters.dateIssueTo || filters.dateEntryTo || undefined,
+        // Формируем фильтры для семантического поиска согласно API документации
+        // input[type="date"] возвращает значения в формате YYYY-MM-DD (ISO 8601), что соответствует API
+        const searchFilters: any = {
+          date_from: filters.dateIssueFrom || undefined,
+          date_to: filters.dateIssueTo || undefined,
           court: filters.court || undefined,
           doctype: filters.result || undefined,
         };
         
-        // Убираем undefined значения
+        // Добавляем категорию, если выбрана (передаем как массив согласно API)
+        if (filters.category && filters.category.trim()) {
+          searchFilters.categories = [filters.category.trim()];
+        }
+        
+        // Убираем undefined и пустые значения
         const cleanFilters = Object.fromEntries(
-          Object.entries(searchFilters).filter(([_, v]) => v !== undefined && v !== '')
+          Object.entries(searchFilters).filter(([_, v]) => {
+            if (v === undefined || v === '') return false;
+            if (Array.isArray(v) && v.length === 0) return false;
+            return true;
+          })
         ) as any;
         
         const results = await semanticSearch({
@@ -306,6 +317,7 @@ const App: React.FC = () => {
              onFilterChange={handleFilterChange}
              onApply={() => handleSearch()} 
              onReset={handleResetFilters}
+             searchType={searchType}
            />
         </div>
       </div>

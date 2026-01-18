@@ -427,6 +427,90 @@ export const checkRecognitionStatus = async (requestID: string): Promise<Recogni
 };
 
 /**
+ * Получение списка доступных судов для фильтрации
+ */
+export const fetchAvailableCourts = async (): Promise<string[]> => {
+  const url = `${CONFIG.semanticApiBase}/api/v1/filters/courts`;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': CONFIG.semanticApiKey,
+      },
+    });
+
+    if (!res.ok) {
+      console.error('Failed to fetch courts:', res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    // API возвращает объект { items: [...], count: N }
+    return data.items || [];
+  } catch (error) {
+    console.error('Error fetching courts:', error);
+    return [];
+  }
+};
+
+/**
+ * Получение списка доступных типов документов для фильтрации
+ */
+export const fetchAvailableDocTypes = async (): Promise<string[]> => {
+  const url = `${CONFIG.semanticApiBase}/api/v1/filters/doctypes`;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': CONFIG.semanticApiKey,
+      },
+    });
+
+    if (!res.ok) {
+      console.error('Failed to fetch doctypes:', res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    // API возвращает объект { items: [...], count: N }
+    return data.items || [];
+  } catch (error) {
+    console.error('Error fetching doctypes:', error);
+    return [];
+  }
+};
+
+/**
+ * Получение списка доступных категорий дел для фильтрации
+ */
+export const fetchAvailableCategories = async (): Promise<string[]> => {
+  const url = `${CONFIG.semanticApiBase}/api/v1/filters/categories`;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': CONFIG.semanticApiKey,
+      },
+    });
+
+    if (!res.ok) {
+      console.error('Failed to fetch categories:', res.status);
+      return [];
+    }
+
+    const data = await res.json();
+    // API возвращает объект { items: [...], count: N }
+    return data.items || [];
+  } catch (error) {
+    console.error('Error fetching categories:', error);
+    return [];
+  }
+};
+
+/**
  * Polling механизм с exponential backoff для получения результата анализа
  * Возвращает распарсенный результат или выбрасывает ошибку при таймауте/ошибке
  */
