@@ -10,7 +10,9 @@ import {
 } from '../types';
 
 const CONFIG = {
-  useProxy: true, // Использовать прокси через server.js для обхода CORS
+  // Используем прокси только в dev режиме (когда запущен server.js)
+  // На production делаем прямые запросы к API
+  useProxy: import.meta.env.DEV, // true только в dev режиме
   apiBase: 'https://api.you-right.ru/gas',
   apiKey: '7bbace5900c34b2d87aa4c612ea356a0', // Старый ключ для классического API
   searchEndpoint: '/api/search',
