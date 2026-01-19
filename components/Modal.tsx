@@ -383,15 +383,19 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
 
         {/* Footer Actions */}
         <div className="p-5 border-t border-white/5 flex justify-between items-center bg-[#1c1c1e]/90 backdrop-blur-md sticky bottom-0">
-          <a 
-            href={data_json.url || '#'} 
-            target="_blank" 
-            rel="noreferrer"
-            className="flex items-center space-x-2 text-sm font-medium text-[#86868b] hover:text-white transition-colors"
-          >
-            <FileTextIcon className="w-4 h-4" />
-            <span>Оригинал документа</span>
-          </a>
+          {!data.semanticData ? (
+            <a 
+              href={data_json.url || '#'} 
+              target="_blank" 
+              rel="noreferrer"
+              className="flex items-center space-x-2 text-sm font-medium text-[#86868b] hover:text-white transition-colors"
+            >
+              <FileTextIcon className="w-4 h-4" />
+              <span>Оригинал документа</span>
+            </a>
+          ) : (
+            <div />
+          )}
 
           <button 
             onClick={handleStartAIAnalysis}
