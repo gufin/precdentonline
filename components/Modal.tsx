@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CaseRecord, AIAnalysisResult } from '../types';
+import { CaseRecord, AIAnalysisResult, CaseMetadataResponse } from '../types';
 import { XIcon, SparklesIcon, FileTextIcon } from './Icons';
-import { fetchCaseText, startRecognition, pollRecognitionStatus } from '../services/api';
+import { fetchCaseText, fetchCaseMetadata, startRecognition, pollRecognitionStatus } from '../services/api';
 
 interface ModalProps {
   data: CaseRecord | null;
@@ -21,6 +21,8 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
   const [fullText, setFullText] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState(false);
   const [textError, setTextError] = useState<string | null>(null);
+  const [metadata, setMetadata] = useState<CaseMetadataResponse | null>(null);
+  const [loadingMetadata, setLoadingMetadata] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysisState>({ status: 'idle' });
 
   const loadFullText = async (caseNumber: string) => {
@@ -38,6 +40,21 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
       setTextError(error instanceof Error ? error.message : 'Не удалось загрузить полный текст');
     } finally {
       setLoadingText(false);
+    }
+  };
+
+  const loadMetadata = async (caseNumber: string) => {
+    setLoadingMetadata(true);
+    try {
+      const result = await fetchCaseMetadata(caseNumber);
+      if (result.found && result.metadata) {
+        setMetadata(result);
+      }
+    } catch (error) {
+      console.error('Failed to load metadata:', error);
+      // Не показываем ошибку пользователю, просто не обновляем метаданные
+    } finally {
+      setLoadingMetadata(false);
     }
   };
 
@@ -111,6 +128,11 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
       // Сбрасываем состояние AI-анализа при открытии новой карточки
       setAiAnalysis({ status: 'idle' });
       
+      // Загружаем метаданные для получения информации о сторонах
+      if (data.case_number) {
+        loadMetadata(data.case_number);
+      }
+      
       // Если это семантический поиск (есть semanticData), загружаем полный текст
       if (data.semanticData && data.case_number) {
         loadFullText(data.case_number);
@@ -125,6 +147,7 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
       document.body.style.overflow = 'unset';
       window.removeEventListener('keydown', handleEscape);
       setFullText(null);
+      setMetadata(null);
       setTextError(null);
     };
   }, [data, onClose]);
@@ -309,19 +332,27 @@ const Modal: React.FC<ModalProps> = ({ data, onClose, query }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 bg-black/20 rounded-2xl border border-white/5">
              <div>
                 <h4 className="text-[10px] uppercase tracking-widest text-[#86868b] mb-2 font-semibold">Истец</h4>
-                <ul className="text-sm font-medium text-white space-y-1">
-                  {data_json.sides?.Plaintiffs?.map((s, i) => (
-                    <li key={i}>{s.name}</li>
-                  )) || '—'}
-                </ul>
+                {loadingMetadata ? (
+                  <div className="text-sm text-[#86868b]">Загрузка...</div>
+                ) : (
+                  <ul className="text-sm font-medium text-white space-y-1">
+                    {(metadata?.metadata.sides?.Plaintiffs || data_json.sides?.Plaintiffs)?.map((s, i) => (
+                      <li key={i}>{s.name}</li>
+                    )) || <li>—</li>}
+                  </ul>
+                )}
              </div>
              <div>
                 <h4 className="text-[10px] uppercase tracking-widest text-[#86868b] mb-2 font-semibold">Ответчик</h4>
-                <ul className="text-sm font-medium text-white space-y-1">
-                  {data_json.sides?.Defendants?.map((s, i) => (
-                    <li key={i}>{s.name}</li>
-                  )) || '—'}
-                </ul>
+                {loadingMetadata ? (
+                  <div className="text-sm text-[#86868b]">Загрузка...</div>
+                ) : (
+                  <ul className="text-sm font-medium text-white space-y-1">
+                    {(metadata?.metadata.sides?.Defendants || data_json.sides?.Defendants)?.map((s, i) => (
+                      <li key={i}>{s.name}</li>
+                    )) || <li>—</li>}
+                  </ul>
+                )}
              </div>
           </div>
 

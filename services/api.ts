@@ -6,7 +6,8 @@ import {
   RecognitionRequest,
   RecognitionStartResponse,
   RecognitionStatusResponse,
-  AIAnalysisResult
+  AIAnalysisResult,
+  CaseMetadataResponse
 } from '../types';
 
 const CONFIG = {
@@ -337,6 +338,67 @@ export const fetchCaseText = async (caseNumber: string): Promise<{ case_number: 
       throw error;
     }
     throw new Error('Не удалось получить текст дела');
+  }
+};
+
+/**
+ * Получение метаданных дела по номеру
+ */
+export const fetchCaseMetadata = async (caseNumber: string): Promise<CaseMetadataResponse> => {
+  // Прямое обращение к API (CORS разрешен)
+  const url = `${CONFIG.semanticApiBase}/api/v1/cases/${encodeURIComponent(caseNumber)}/metadata`;
+  
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': CONFIG.semanticApiKey,
+      },
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      let errorMessage = `Ошибка сервера: ${res.status} ${res.statusText}`;
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          errorMessage = errorJson.error;
+          if (errorJson.details) {
+            errorMessage += `. ${errorJson.details}`;
+          }
+        } else if (errorJson.detail) {
+          if (Array.isArray(errorJson.detail)) {
+            errorMessage = errorJson.detail.map((d: any) => d.msg || d.message).join(', ');
+          } else if (typeof errorJson.detail === 'string') {
+            errorMessage = errorJson.detail;
+          }
+        }
+      } catch {
+        if (errorText && !errorText.trim().startsWith('<!')) {
+          errorMessage = errorText;
+        }
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const data = await res.json();
+    
+    if (!data || typeof data !== 'object') {
+      throw new Error('Неверный формат ответа от API');
+    }
+
+    return data;
+  } catch (error) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('Сервис недоступен: не удалось подключиться к серверу.');
+    }
+    
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Не удалось получить метаданные дела');
   }
 };
 

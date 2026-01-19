@@ -1,6 +1,10 @@
 export interface CaseSide {
   name: string;
   type?: string;
+  inn?: string | null;
+  kpp?: string | null;
+  orgn?: string | null;
+  orgnip?: string | null;
 }
 
 export interface CaseSides {
@@ -127,6 +131,30 @@ export function adaptSearchResultToCaseRecord(item: SearchResultItem): CaseRecor
       snippet: item.snippet,
     },
   } as CaseRecord & { semanticData?: { score: number; highlights: string[]; snippet: string } };
+}
+
+// Типы для метаданных дела
+export interface CaseMetadataResponse {
+  case_number: string;
+  metadata: {
+    url: string;
+    type: string;
+    court: string;
+    judge: string;
+    sides: CaseSides;
+    case_id: string;
+    date_issue: string;
+    case_number: string;
+    issue_result: string;
+    date_of_entry: string;
+    case_category_1: string;
+    case_category_2: string | null;
+    case_category_3: string | null;
+    case_category_4: string | null;
+    date_start_case: string;
+    case_consideration: string;
+  };
+  found: boolean;
 }
 
 // Типы для AI-анализа судебных решений (Recognition API)
