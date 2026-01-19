@@ -85,7 +85,7 @@ const App: React.FC = () => {
         
         const results = await semanticSearch({
           query: query.trim(),
-          limit: 15, // Начинаем с меньшего лимита, чтобы избежать таймаутов API
+          limit: 100,
           min_score: 0.5,
           filters: Object.keys(cleanFilters).length > 0 ? cleanFilters : null,
         });
