@@ -434,7 +434,7 @@ const App: React.FC = () => {
       <section className="border-t border-white/5 bg-black">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="prose prose-invert prose-lg max-w-none">
-            <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-8 leading-tight">
+            <h1 className="text-[2.6rem] font-bold text-white tracking-tight mb-8 leading-tight">
               Поиск и анализ судебной практики — онлайн-сервис с ИИ
             </h1>
 
@@ -442,7 +442,7 @@ const App: React.FC = () => {
               Ищете судебную практику для работы? Наш сервис — это профессиональный инструмент для юристов. Он дает доступ к экспертно подобранной базе судебных решений по гражданским, административным и уголовным делам. Вы тратите минуты вместо часов на рутинный поиск.
             </p>
 
-            <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight mb-6 mt-16">
+            <h2 className="text-[2rem] font-semibold text-white tracking-tight mb-6 mt-16">
               Где и как найти судебную практику? Крупнейший онлайн-банк дел
             </h2>
 
@@ -462,7 +462,7 @@ const App: React.FC = () => {
               Для точного поиска используйте классический вариант: по номеру дела или конкретной правовой норме, например, «неосновательное обогащение». Это особенно важно при подготовке конкретного иска или отзыва.
             </p>
 
-            <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight mb-6 mt-16">
+            <h2 className="text-[2rem] font-semibold text-white tracking-tight mb-6 mt-16">
               Глубокий анализ судебной практики и решений
             </h2>
 
@@ -480,7 +480,7 @@ const App: React.FC = () => {
               Отдельное внимание мы уделяем подбору решений ВС РФ. Это ключевые прецеденты, формирующие правоприменение. Быстрый доступ к ним экономит время на подготовку апелляционных и кассационных жалоб.
             </p>
 
-            <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight mb-6 mt-16">
+            <h2 className="text-[2rem] font-semibold text-white tracking-tight mb-6 mt-16">
               Специальный поиск и картотека дел с точными фильтрами
             </h2>
 
@@ -505,7 +505,7 @@ const App: React.FC = () => {
               В карточке каждого дела собрана вся ключевая информация для анализа судебного решения.
             </p>
 
-            <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight mb-6 mt-16">
+            <h2 className="text-[2rem] font-semibold text-white tracking-tight mb-6 mt-16">
               Ключевые преимущества нашей справочно-правовой системы (СПС)
             </h2>
 
@@ -517,7 +517,7 @@ const App: React.FC = () => {
               <li>Работайте откуда угодно. Полнофункциональный сервис доступен с компьютера, планшета или телефона. Ответ всегда под рукой.</li>
             </ol>
 
-            <h2 className="text-3xl md:text-4xl font-semibold text-white tracking-tight mb-6 mt-16">
+            <h2 className="text-[2rem] font-semibold text-white tracking-tight mb-6 mt-16">
               Наш сервис — это ваша профессиональная справочно-правовая система
             </h2>
 
