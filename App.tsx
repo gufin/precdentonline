@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { SearchIcon, ChevronDown, FilterIcon } from './components/Icons';
-import { fetchTotalCount, searchCases, semanticSearch } from './services/api';
+import { fetchTotalCount, searchCases, semanticSearch, fetchAvailableCourts, fetchAvailableDocTypes, fetchAvailableCategories } from './services/api';
 import { CaseRecord, FilterState, SortOption } from './types';
 import ResultCard from './components/ResultCard';
 import FilterPanel from './components/FilterPanel';
@@ -25,6 +25,12 @@ const App: React.FC = () => {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
 
+  // Cached filter options for semantic search (loaded once on mount)
+  const [cachedCourts, setCachedCourts] = useState<string[]>([]);
+  const [cachedDocTypes, setCachedDocTypes] = useState<string[]>([]);
+  const [cachedCategories, setCachedCategories] = useState<string[]>([]);
+  const [loadingFilterOptions, setLoadingFilterOptions] = useState(false);
+
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
     court: '', judge: '', category: '', result: '', level: '', side: '',
@@ -36,10 +42,21 @@ const App: React.FC = () => {
   useEffect(() => {
     fetchTotalCount()
       .then(setTotalCount)
-      .catch((err) => {
-        // Тихая обработка - просто показываем дефолт
-        setTotalCount('—');
-      });
+      .catch(() => setTotalCount('—'));
+
+    // Кэшируем опции фильтров семантического поиска один раз при загрузке
+    setLoadingFilterOptions(true);
+    Promise.all([
+      fetchAvailableCourts(),
+      fetchAvailableDocTypes(),
+      fetchAvailableCategories(),
+    ])
+      .then(([courts, docTypes, categories]) => {
+        setCachedCourts(courts);
+        setCachedDocTypes(docTypes);
+        setCachedCategories(categories);
+      })
+      .finally(() => setLoadingFilterOptions(false));
   }, []);
 
   // Handlers
@@ -213,7 +230,8 @@ const App: React.FC = () => {
                      setSearchType('semantic');
                      setError(null);
                      setAllCases([]);
-                     setCaseNumber(''); // Очищаем номер дела при переключении на семантический поиск
+                     setFiltersOpen(false);
+                     setCaseNumber('');
                    }}
                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                      searchType === 'semantic'
@@ -229,6 +247,7 @@ const App: React.FC = () => {
                      setSearchType('classic');
                      setError(null);
                      setAllCases([]);
+                     setFiltersOpen(false);
                    }}
                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
                      searchType === 'classic'
@@ -291,17 +310,20 @@ const App: React.FC = () => {
                 </button>
              </div>
 
-             <div className="flex justify-center mt-4">
-                <button 
-                  type="button"
-                  onClick={() => setFiltersOpen(!filtersOpen)}
-                  className={`flex items-center space-x-1.5 text-xs font-medium tracking-wide transition-all duration-300 px-4 py-1.5 rounded-full ${filtersOpen ? 'bg-white/10 text-white' : 'text-[#86868b] hover:text-white'}`}
-                >
-                  <FilterIcon className="w-3 h-3" />
-                  <span>Фильтры поиска</span>
-                  <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${filtersOpen ? 'rotate-180' : ''}`} />
-                </button>
-             </div>
+             {/* Для классического поиска кнопка фильтров появляется только после получения результатов */}
+             {(searchType === 'semantic' || allCases.length > 0) && (
+               <div className="flex justify-center mt-4">
+                 <button
+                   type="button"
+                   onClick={() => setFiltersOpen(!filtersOpen)}
+                   className={`flex items-center space-x-1.5 text-xs font-medium tracking-wide transition-all duration-300 px-4 py-1.5 rounded-full ${filtersOpen ? 'bg-white/10 text-white' : 'text-[#86868b] hover:text-white'}`}
+                 >
+                   <FilterIcon className="w-3 h-3" />
+                   <span>{searchType === 'classic' ? 'Искать в найденном' : 'Фильтры поиска'}</span>
+                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${filtersOpen ? 'rotate-180' : ''}`} />
+                 </button>
+               </div>
+             )}
           </form>
 
         </div>
@@ -310,14 +332,18 @@ const App: React.FC = () => {
       {/* --- FILTERS --- */}
       <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${filtersOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2">
-           <FilterPanel 
+           <FilterPanel
              isOpen={filtersOpen}
              filters={filters}
              cases={allCases}
              onFilterChange={handleFilterChange}
-             onApply={() => handleSearch()} 
+             onApply={searchType === 'semantic' ? () => handleSearch() : () => setFiltersOpen(false)}
              onReset={handleResetFilters}
              searchType={searchType}
+             cachedCourts={cachedCourts}
+             cachedDocTypes={cachedDocTypes}
+             cachedCategories={cachedCategories}
+             loadingFilterOptions={loadingFilterOptions}
            />
         </div>
       </div>
