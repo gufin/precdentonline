@@ -142,22 +142,47 @@ const App: React.FC = () => {
   };
 
   // Derived Data (Filtering & Sorting)
-  // Примечание: при использовании семантического поиска фильтрация происходит на сервере,
-  // но оставляем клиентскую фильтрацию для дополнительных фильтров (judge, side)
   const processedData = useMemo(() => {
     let data = [...allCases];
 
-    // 1. Filter (только те фильтры, которые не поддерживаются сервером)
+    // Для классического поиска фильтрация полностью клиентская («искать в найденном»).
+    // Для семантического — court/result/date уже применены на сервере, дополняем judge/side.
     data = data.filter(item => {
       const j = item.data_json;
-      // court, result, date фильтры уже применены на сервере при семантическом поиске
-      if (filters.judge && j.judge !== filters.judge) return false;
-      
-      if (filters.side) {
-        const sideStr = JSON.stringify(j.sides).toLowerCase();
-        if (!sideStr.includes(filters.side.toLowerCase())) return false;
+
+      if (searchType === 'classic') {
+        if (filters.court && j.court !== filters.court) return false;
+        if (filters.judge && j.judge !== filters.judge) return false;
+        if (filters.result && j.issue_result !== filters.result) return false;
+
+        if (filters.side) {
+          const sideStr = JSON.stringify(j.sides ?? '').toLowerCase();
+          if (!sideStr.includes(filters.side.toLowerCase())) return false;
+        }
+
+        // Даты: данные в формате DD.MM.YYYY, фильтры — YYYY-MM-DD
+        if (filters.dateIssueFrom || filters.dateIssueTo) {
+          const raw = j.date_issue ?? '';
+          // DD.MM.YYYY → YYYY-MM-DD для сравнения строк
+          const parts = raw.split('.');
+          const iso = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : '';
+          if (iso) {
+            if (filters.dateIssueFrom && iso < filters.dateIssueFrom) return false;
+            if (filters.dateIssueTo && iso > filters.dateIssueTo) return false;
+          }
+        }
+
+        if (filters.inForceOnly && !j.date_of_entry) return false;
+      } else {
+        // Семантический: только клиентские доп. фильтры
+        if (filters.judge && j.judge !== filters.judge) return false;
+        if (filters.side) {
+          const sideStr = JSON.stringify(j.sides ?? '').toLowerCase();
+          if (!sideStr.includes(filters.side.toLowerCase())) return false;
+        }
       }
-      return true; 
+
+      return true;
     });
 
     // 2. Sort
@@ -181,7 +206,7 @@ const App: React.FC = () => {
     });
 
     return data;
-  }, [allCases, filters, sortOption]);
+  }, [allCases, filters, sortOption, searchType]);
 
   const paginatedData = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
