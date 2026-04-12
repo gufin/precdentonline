@@ -41,12 +41,14 @@
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
     
-    <!-- Bitrix24 Open Lines Widget -->
+    <!-- Bitrix24 Open Lines Widget — skip in embed mode -->
     <script>
+      if (new URLSearchParams(window.location.search).get('embed') !== 'true') {
         (function(w,d,u){
-                var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
-                var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
+          var s=d.createElement('script');s.async=true;s.src=u+'?'+(Date.now()/60000|0);
+          var h=d.getElementsByTagName('script')[0];h.parentNode.insertBefore(s,h);
         })(window,document,'https://cdn-ru.bitrix24.ru/b9603747/crm/site_button/loader_8_ga9zgp.js');
+      }
     </script>
   </body>
 </html>

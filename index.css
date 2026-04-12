@@ -13,7 +13,7 @@ body {
   font-family: 'JetBrains Mono', monospace; 
 }
 
-/* Apple-style dark scrollbar */
+/* Dark scrollbar (default) */
 ::-webkit-scrollbar {
   width: 10px;
   background-color: #000000;
@@ -27,4 +27,28 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: #555;
+}
+
+/* Light theme — applied via html.theme-light when ?embed=true */
+html.theme-light body {
+  background-color: #f9f9fb;
+  color: #1d1d1f;
+}
+
+html.theme-light ::-webkit-scrollbar {
+  background-color: #f5f5f7;
+}
+
+html.theme-light ::-webkit-scrollbar-thumb {
+  background-color: #c7c7cc;
+  border: 2px solid #f5f5f7;
+}
+
+html.theme-light ::-webkit-scrollbar-thumb:hover {
+  background-color: #aeaeb2;
+}
+
+/* date input light-mode calendar icon color */
+html.theme-light input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.4);
 }
