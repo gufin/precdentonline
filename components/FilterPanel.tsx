@@ -10,6 +10,7 @@ interface FilterPanelProps {
   onApply: () => void;
   onReset: () => void;
   searchType?: 'semantic' | 'classic';
+  hasSemanticResults?: boolean;
   cachedCourts?: string[];
   cachedDocTypes?: string[];
   cachedCategories?: string[];
@@ -24,6 +25,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
   onApply,
   onReset,
   searchType = 'classic',
+  hasSemanticResults = false,
   cachedCourts = [],
   cachedDocTypes = [],
   cachedCategories = [],
@@ -38,14 +40,22 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
     return Array.from<string>(new Set(values)).sort();
   };
 
-  const courts = searchType === 'semantic' ? cachedCourts : getOptions('court');
+  const courts = (searchType === 'semantic' && !hasSemanticResults) ? cachedCourts : getOptions('court');
   const judges = getOptions('judge');
-  const results = searchType === 'semantic' ? cachedDocTypes : getOptions('issue_result');
-  const loading = searchType === 'semantic' && loadingFilterOptions;
+  const results = (searchType === 'semantic' && !hasSemanticResults) ? cachedDocTypes : getOptions('issue_result');
+  const loading = searchType === 'semantic' && !hasSemanticResults && loadingFilterOptions;
 
   return (
     <div className={`${t.filterPanelBg} border ${t.filterPanelBorder} rounded-3xl p-6 md:p-8 shadow-2xl`}>
-      {searchType === 'semantic' && (
+      {searchType === 'semantic' && hasSemanticResults && (
+        <div className={`mb-6 p-3 ${t.filterInfoClsBg} border ${t.filterInfoClsBorder} rounded-xl`}>
+          <p className={`text-xs ${t.filterInfoClsText}`}>
+            <span className={`${t.filterInfoClsLabel} font-semibold`}>Поиск в найденном:</span> фильтры применяются к {cases.length} найденным результатам без нового семантического запроса
+          </p>
+        </div>
+      )}
+
+      {searchType === 'semantic' && !hasSemanticResults && (
         <div className={`mb-6 p-3 ${t.filterInfoSemBg} border ${t.filterInfoSemBorder} rounded-xl`}>
           <p className={`text-xs ${t.filterInfoSemText}`}>
             <span className={`${t.filterInfoSemAccent} font-semibold`}>Семантический поиск:</span> доступны фильтры по дате, суду, типу документа и категориям
@@ -156,7 +166,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({
           onClick={onApply}
           className={`px-6 py-2 ${t.ctaBg} ${t.ctaText} text-sm font-semibold rounded-full ${t.ctaBgHover} transition-colors shadow-lg`}
         >
-          {searchType === 'classic' ? 'Готово' : 'Применить фильтры'}
+          {(searchType === 'classic' || hasSemanticResults) ? 'Готово' : 'Применить фильтры'}
         </button>
       </div>
     </div>

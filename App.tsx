@@ -147,6 +147,8 @@ const AppContent: React.FC = () => {
     });
   };
 
+  const hasSemanticResults = searchType === 'semantic' && allCases.length > 0;
+
   // Derived Data (Filtering & Sorting)
   const processedData = useMemo(() => {
     let data = [...allCases];
@@ -176,6 +178,21 @@ const AppContent: React.FC = () => {
 
         if (filters.inForceOnly && !j.date_of_entry) return false;
       } else {
+        // Semantic: все фильтры применяются на клиенте к уже загруженным результатам
+        if (filters.court && j.court !== filters.court) return false;
+        if (filters.result && j.issue_result !== filters.result) return false;
+        if (filters.category && !(j.case_category_2 || '').toLowerCase().includes(filters.category.toLowerCase())) return false;
+
+        if (filters.dateIssueFrom || filters.dateIssueTo) {
+          const raw = j.date_issue ?? '';
+          const parts = raw.split('.');
+          const iso = parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : '';
+          if (iso) {
+            if (filters.dateIssueFrom && iso < filters.dateIssueFrom) return false;
+            if (filters.dateIssueTo && iso > filters.dateIssueTo) return false;
+          }
+        }
+
         if (filters.judge && j.judge !== filters.judge) return false;
         if (filters.side) {
           const sideStr = JSON.stringify(j.sides ?? '').toLowerCase();
@@ -339,7 +356,7 @@ const AppContent: React.FC = () => {
                   className={`flex items-center space-x-1.5 text-xs font-medium tracking-wide transition-all duration-300 px-4 py-1.5 rounded-full ${filtersOpen ? t.filterToggleActive : t.filterToggleClosed}`}
                 >
                   <FilterIcon className="w-3 h-3" />
-                  <span>{searchType === 'classic' ? 'Искать в найденном' : 'Фильтры поиска'}</span>
+                  <span>{hasSemanticResults || searchType === 'classic' ? 'Искать в найденном' : 'Фильтры поиска'}</span>
                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${filtersOpen ? 'rotate-180' : ''}`} />
                 </button>
               </div>
@@ -357,9 +374,10 @@ const AppContent: React.FC = () => {
             filters={filters}
             cases={allCases}
             onFilterChange={handleFilterChange}
-            onApply={searchType === 'semantic' ? () => handleSearch() : () => setFiltersOpen(false)}
+            onApply={hasSemanticResults || searchType === 'classic' ? () => setFiltersOpen(false) : () => handleSearch()}
             onReset={handleResetFilters}
             searchType={searchType}
+            hasSemanticResults={hasSemanticResults}
             cachedCourts={cachedCourts}
             cachedDocTypes={cachedDocTypes}
             cachedCategories={cachedCategories}
