@@ -1,4 +1,4 @@
-export type Theme = 'dark' | 'light';
+export type Theme = 'dark' | 'light' | 'allcourts';
 
 export interface ThemeClasses {
   // Core
@@ -497,4 +497,56 @@ const light: ThemeClasses = {
   aiActionText: 'text-white',
 };
 
-export const themes: Record<Theme, ThemeClasses> = { dark, light };
+const allcourts: ThemeClasses = {
+  ...light,
+  pageBg: 'bg-white',
+  selection: 'selection:bg-[#2f6fd6] selection:text-white',
+  headerBg: 'bg-white border-b border-[#eef1f5]',
+  searchFormBg: 'bg-white',
+  searchFormBorder: 'border-[#e9edf3]',
+  searchFormFocusRing: 'focus-within:ring-2 focus-within:ring-[#2f6fd6]/20 focus-within:border-[#2f6fd6]/30',
+  toggleContainerBg: 'bg-white',
+  toggleContainerBorder: 'border-[#e9edf3]',
+  toggleActive: 'bg-[#eaf3ff] text-[#2f6fd6] shadow-none',
+  toggleInactive: 'text-[#6b7280] hover:text-[#1f2937] hover:bg-[#f8fafc]',
+  toggleHintText: 'text-[#8a94a6]',
+  ctaBg: 'bg-[#f8d247]',
+  ctaText: 'text-[#1f2937]',
+  ctaBgHover: 'hover:bg-[#f4c928]',
+  ctaSpinner: 'border-[#1f2937]/30 border-t-[#1f2937]',
+  filterToggleActive: 'bg-[#eaf3ff] text-[#2f6fd6]',
+  filterToggleClosed: 'text-[#8a94a6] hover:text-[#2f6fd6] hover:bg-[#f8fafc]',
+  sortHoverBorder: 'hover:border-[#2f6fd6]/40',
+  sortFocusBorder: 'focus:border-[#2f6fd6]',
+  filterPanelBg: 'bg-white',
+  filterPanelBorder: 'border-[#e9edf3]',
+  filterInfoSemBg: 'bg-[#eaf3ff]',
+  filterInfoSemBorder: 'border-[#d8e8ff]',
+  filterInfoSemAccent: 'text-[#2f6fd6]',
+  filterInfoSemText: 'text-[#6b7280]',
+  filterInputFocusBorder: 'focus:border-[#2f6fd6]',
+  filterInputFocusRing: 'focus:ring-1 focus:ring-[#2f6fd6]',
+  filterCheckboxChecked: 'checked:bg-[#2f6fd6] checked:border-[#2f6fd6]',
+  selectTriggerBorderOpen: 'border-[#2f6fd6]',
+  selectTriggerRingOpen: 'ring-1 ring-[#2f6fd6]',
+  selectSearchFocusBorder: 'focus:border-[#2f6fd6]',
+  selectItemSelected: 'text-[#2f6fd6] bg-[#eaf3ff]',
+  cardCaseHover: 'group-hover:text-[#2f6fd6]',
+  cardTagResultBg: 'bg-[#eaf3ff]',
+  cardTagResultText: 'text-[#2f6fd6]',
+  cardFooterLinkText: 'text-[#2f6fd6]',
+  highlightBg: 'bg-[#eaf3ff]',
+  highlightText: 'text-[#2f6fd6]',
+  modalBadgeBg: 'bg-[#2f6fd6]',
+  aiSectionBorder: 'border-[#d8e8ff]',
+  aiIconText: 'text-[#2f6fd6]',
+  aiSummaryBg: 'bg-[#eaf3ff]',
+  aiSummaryBorder: 'border-[#d8e8ff]',
+  aiSummaryLabel: 'text-[#2f6fd6]',
+  aiRetryBg: 'bg-[#2f6fd6]',
+  aiRetryHover: 'hover:bg-[#255bb0]',
+  aiActionBg: 'bg-[#2f6fd6]',
+  aiActionHover: 'hover:bg-[#255bb0]',
+};
+
+export const themes: Record<Theme, ThemeClasses> = { dark, light, allcourts };

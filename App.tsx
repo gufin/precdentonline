@@ -103,7 +103,7 @@ const resolveCourtName = (incomingCourtName: string, availableCourts: string[]) 
 };
 
 const AppContent: React.FC = () => {
-  const { t, isEmbed } = useTheme();
+  const { t, isEmbed, isAllCourtsEmbed } = useTheme();
 
   // State
   const [query, setQuery] = useState('');
@@ -202,10 +202,14 @@ const AppContent: React.FC = () => {
     if (isEmbed) {
       document.documentElement.classList.add('theme-light');
     }
+    if (isAllCourtsEmbed) {
+      document.documentElement.classList.add('theme-allcourts');
+    }
     return () => {
       document.documentElement.classList.remove('theme-light');
+      document.documentElement.classList.remove('theme-allcourts');
     };
-  }, [isEmbed]);
+  }, [isEmbed, isAllCourtsEmbed]);
 
   // Handlers
   const handleSearch = async (e?: React.FormEvent) => {
@@ -368,7 +372,7 @@ const AppContent: React.FC = () => {
 
       {/* --- HEADER / SEARCH --- */}
       <header className={`${isEmbed ? '' : 'sticky top-0 z-40'} ${t.headerBg} transition-colors duration-500`}>
-        <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isEmbed ? 'py-4 pt-6' : 'py-4'}`}>
+        <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isAllCourtsEmbed ? 'py-5' : isEmbed ? 'py-4 pt-6' : 'py-4'}`}>
 
           {/* Branding row — hidden in embed mode */}
           {!isEmbed && (
