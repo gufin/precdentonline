@@ -403,6 +403,25 @@ const AppContent: React.FC = () => {
     });
   };
 
+  const filtersPanel = (
+    <div ref={filtersContentRef} className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2">
+      <FilterPanel
+        isOpen={filtersOpen}
+        filters={filters}
+        cases={allCases}
+        onFilterChange={handleFilterChange}
+        onApply={hasSemanticResults || searchType === 'classic' ? () => setFiltersOpen(false) : () => handleSearch()}
+        onReset={handleResetFilters}
+        searchType={searchType}
+        hasSemanticResults={hasSemanticResults}
+        cachedCourts={cachedCourts}
+        cachedDocTypes={cachedDocTypes}
+        cachedCategories={cachedCategories}
+        loadingFilterOptions={loadingFilterOptions}
+      />
+    </div>
+  );
+
   // Derived Data (Filtering & Sorting)
   const processedData = useMemo(() => {
     let data = [...allCases];
@@ -621,37 +640,26 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* --- FILTERS --- */}
-      <div
-        className={`${filtersAllowOverflow ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${filtersOpen ? 'opacity-100' : 'opacity-0'}`}
-        style={{ maxHeight: filtersOpen ? `${filtersMaxHeight}px` : '0px' }}
-        onTransitionEnd={(event) => {
-          if (event.target !== event.currentTarget || event.propertyName !== 'max-height') {
-            return;
-          }
+      {isEmbed && filtersOpen ? (
+        filtersPanel
+      ) : (
+        <div
+          className={`${filtersAllowOverflow ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${filtersOpen ? 'opacity-100' : 'opacity-0'}`}
+          style={{ maxHeight: filtersOpen ? `${filtersMaxHeight}px` : '0px' }}
+          onTransitionEnd={(event) => {
+            if (event.target !== event.currentTarget || event.propertyName !== 'max-height') {
+              return;
+            }
 
-          if (filtersOpen) {
-            updateFiltersLayout();
-            setFiltersAllowOverflow(true);
-          }
-        }}
-      >
-        <div ref={filtersContentRef} className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2">
-          <FilterPanel
-            isOpen={filtersOpen}
-            filters={filters}
-            cases={allCases}
-            onFilterChange={handleFilterChange}
-            onApply={hasSemanticResults || searchType === 'classic' ? () => setFiltersOpen(false) : () => handleSearch()}
-            onReset={handleResetFilters}
-            searchType={searchType}
-            hasSemanticResults={hasSemanticResults}
-            cachedCourts={cachedCourts}
-            cachedDocTypes={cachedDocTypes}
-            cachedCategories={cachedCategories}
-            loadingFilterOptions={loadingFilterOptions}
-          />
+            if (filtersOpen) {
+              updateFiltersLayout();
+              setFiltersAllowOverflow(true);
+            }
+          }}
+        >
+          {filtersPanel}
         </div>
-      </div>
+      )}
 
       {/* --- RESULTS --- */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 min-h-[60vh]">
