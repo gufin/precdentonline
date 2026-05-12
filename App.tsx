@@ -571,7 +571,7 @@ const AppContent: React.FC = () => {
               </div>
               {searchType === 'semantic' && (
                 <p className={`text-xs ${t.toggleHintText} text-center max-w-md`}>
-                  Умный поиск по смыслу — находит релевантные решения даже без точных совпадений
+                  Умный поиск по смыслу ТЕСТ — находит релевантные решения даже без точных совпадений
                 </p>
               )}
               {searchType === 'classic' && (
