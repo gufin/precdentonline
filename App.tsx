@@ -159,7 +159,7 @@ const AppContent: React.FC = () => {
   const [selectedCase, setSelectedCase] = useState<CaseRecord | null>(null);
 
   // UI State
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(initialEmbedParams.requestedFiltersOpen);
   const [sortOption, setSortOption] = useState<SortOption>('date_desc');
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
