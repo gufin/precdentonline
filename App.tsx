@@ -171,8 +171,11 @@ const AppContent: React.FC = () => {
   const [loadingFilterOptions, setLoadingFilterOptions] = useState(false);
   const [incomingCourtName, setIncomingCourtName] = useState<string | null>(initialEmbedParams.courtName);
   const [embedUiReady, setEmbedUiReady] = useState(false);
+  const [filtersMaxHeight, setFiltersMaxHeight] = useState(0);
+  const [filtersAllowOverflow, setFiltersAllowOverflow] = useState(false);
   const lastAppliedIncomingCourtRef = useRef('');
   const pendingFiltersOpenRef = useRef(initialEmbedParams.requestedFiltersOpen);
+  const filtersContentRef = useRef<HTMLDivElement>(null);
 
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
@@ -205,6 +208,19 @@ const AppContent: React.FC = () => {
     const frameId = window.requestAnimationFrame(() => setEmbedUiReady(true));
     return () => window.cancelAnimationFrame(frameId);
   }, []);
+
+  const updateFiltersLayout = () => {
+    const nextHeight = filtersContentRef.current?.scrollHeight ?? 0;
+    setFiltersMaxHeight(prev => (prev === nextHeight ? prev : nextHeight));
+  };
+
+  const openFiltersPanel = () => {
+    pendingFiltersOpenRef.current = false;
+    setFiltersAllowOverflow(false);
+    setFiltersOpen(prev => (prev ? prev : true));
+  };
+
+  const hasSemanticResults = searchType === 'semantic' && allCases.length > 0;
 
   // AllCourts iframe integration: prefill the semantic search court filter.
   useEffect(() => {
@@ -251,7 +267,7 @@ const AppContent: React.FC = () => {
       if (message.type === 'openFilters') {
         pendingFiltersOpenRef.current = true;
         if (embedUiReady) {
-          setFiltersOpen(prev => (prev ? prev : true));
+          openFiltersPanel();
         }
       }
     };
@@ -265,9 +281,37 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    pendingFiltersOpenRef.current = false;
-    setFiltersOpen(prev => (prev ? prev : true));
+    openFiltersPanel();
   }, [embedUiReady, isEmbed, loadingFilterOptions, searchType]);
+
+  useEffect(() => {
+    if (!filtersOpen) {
+      setFiltersAllowOverflow(false);
+      setFiltersMaxHeight(0);
+      return;
+    }
+
+    updateFiltersLayout();
+
+    const rafId = window.requestAnimationFrame(() => {
+      updateFiltersLayout();
+    });
+
+    const observer = typeof ResizeObserver === 'undefined' || !filtersContentRef.current
+      ? null
+      : new ResizeObserver(() => {
+          updateFiltersLayout();
+        });
+
+    if (observer && filtersContentRef.current) {
+      observer.observe(filtersContentRef.current);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      observer?.disconnect();
+    };
+  }, [filtersOpen, loadingFilterOptions, searchType, hasSemanticResults, filters.court, filters.result, filters.category]);
 
   // Embed mode setup: apply html class for scrollbar override, hide Bitrix24
   useEffect(() => {
@@ -358,8 +402,6 @@ const AppContent: React.FC = () => {
       inForceOnly: false
     });
   };
-
-  const hasSemanticResults = searchType === 'semantic' && allCases.length > 0;
 
   // Derived Data (Filtering & Sorting)
   const processedData = useMemo(() => {
@@ -579,8 +621,21 @@ const AppContent: React.FC = () => {
       </header>
 
       {/* --- FILTERS --- */}
-      <div className={`overflow-hidden transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${filtersOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2">
+      <div
+        className={`${filtersAllowOverflow ? 'overflow-visible' : 'overflow-hidden'} transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${filtersOpen ? 'opacity-100' : 'opacity-0'}`}
+        style={{ maxHeight: filtersOpen ? `${filtersMaxHeight}px` : '0px' }}
+        onTransitionEnd={(event) => {
+          if (event.target !== event.currentTarget || event.propertyName !== 'max-height') {
+            return;
+          }
+
+          if (filtersOpen) {
+            updateFiltersLayout();
+            setFiltersAllowOverflow(true);
+          }
+        }}
+      >
+        <div ref={filtersContentRef} className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-2">
           <FilterPanel
             isOpen={filtersOpen}
             filters={filters}
