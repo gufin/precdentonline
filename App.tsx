@@ -14,8 +14,28 @@ const COURT_SEARCH_PARAM_NAMES = [
   'selectedCourt',
 ];
 
-const TRUSTED_COURT_MESSAGE_ORIGINS = new Set([
+const DEFAULT_TRUSTED_EMBED_MESSAGE_ORIGINS = [
   'https://allcourts.you-right.ru',
+];
+
+type EmbedMessageCommand = 'openFilters' | 'setCourtName';
+
+type ParsedEmbedMessage = {
+  type: EmbedMessageCommand;
+  courtName: string | null;
+};
+
+type InitialEmbedParams = {
+  requestedFiltersOpen: boolean;
+  courtName: string | null;
+};
+
+const TRUSTED_EMBED_MESSAGE_ORIGINS = new Set([
+  ...DEFAULT_TRUSTED_EMBED_MESSAGE_ORIGINS,
+  ...((import.meta.env.VITE_ALLOWED_EMBED_ORIGINS as string | undefined) || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean),
 ]);
 
 const normalizeCourtName = (value: string) =>
@@ -36,33 +56,7 @@ const firstString = (...values: unknown[]) => {
   return null;
 };
 
-const getCourtNameFromSearch = (search: string) => {
-  const params = new URLSearchParams(search);
-  for (const paramName of COURT_SEARCH_PARAM_NAMES) {
-    const value = params.get(paramName);
-    if (value?.trim()) {
-      return value.trim();
-    }
-  }
-  return null;
-};
-
-const getCourtNameFromMessage = (data: unknown): string | null => {
-  let payload = data;
-
-  if (typeof payload === 'string') {
-    try {
-      payload = JSON.parse(payload);
-    } catch {
-      return payload.trim() || null;
-    }
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return null;
-  }
-
-  const record = payload as Record<string, unknown>;
+const getCourtNameFromPayload = (record: Record<string, unknown>) => {
   const directCourtName = firstString(
     record.court,
     record.courtName,
@@ -82,6 +76,52 @@ const getCourtNameFromMessage = (data: unknown): string | null => {
   }
 
   return null;
+};
+
+const getCourtNameFromSearch = (search: string) => {
+  const params = new URLSearchParams(search);
+  for (const paramName of COURT_SEARCH_PARAM_NAMES) {
+    const value = params.get(paramName);
+    if (value?.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const getInitialEmbedParams = (search: string): InitialEmbedParams => {
+  const params = new URLSearchParams(search);
+  return {
+    requestedFiltersOpen: params.get('embed') === 'true' && params.get('openFilters') === '1',
+    courtName: getCourtNameFromSearch(search),
+  };
+};
+
+const getEmbedMessage = (data: unknown): ParsedEmbedMessage | null => {
+  let payload = data;
+
+  if (typeof payload === 'string') {
+    try {
+      payload = JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const record = payload as Record<string, unknown>;
+  const type = record.type;
+  if (type !== 'openFilters' && type !== 'setCourtName') {
+    return null;
+  }
+
+  return {
+    type,
+    courtName: getCourtNameFromPayload(record),
+  };
 };
 
 const resolveCourtName = (incomingCourtName: string, availableCourts: string[]) => {
@@ -104,6 +144,7 @@ const resolveCourtName = (incomingCourtName: string, availableCourts: string[]) 
 
 const AppContent: React.FC = () => {
   const { t, isEmbed, isAllCourtsEmbed } = useTheme();
+  const initialEmbedParams = useMemo(() => getInitialEmbedParams(window.location.search), []);
 
   // State
   const [query, setQuery] = useState('');
@@ -128,8 +169,10 @@ const AppContent: React.FC = () => {
   const [cachedDocTypes, setCachedDocTypes] = useState<string[]>([]);
   const [cachedCategories, setCachedCategories] = useState<string[]>([]);
   const [loadingFilterOptions, setLoadingFilterOptions] = useState(false);
-  const [incomingCourtName, setIncomingCourtName] = useState<string | null>(() => getCourtNameFromSearch(window.location.search));
+  const [incomingCourtName, setIncomingCourtName] = useState<string | null>(initialEmbedParams.courtName);
+  const [embedUiReady, setEmbedUiReady] = useState(false);
   const lastAppliedIncomingCourtRef = useRef('');
+  const pendingFiltersOpenRef = useRef(initialEmbedParams.requestedFiltersOpen);
 
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
@@ -158,6 +201,11 @@ const AppContent: React.FC = () => {
       .finally(() => setLoadingFilterOptions(false));
   }, []);
 
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => setEmbedUiReady(true));
+    return () => window.cancelAnimationFrame(frameId);
+  }, []);
+
   // AllCourts iframe integration: prefill the semantic search court filter.
   useEffect(() => {
     if (!incomingCourtName) return;
@@ -182,20 +230,44 @@ const AppContent: React.FC = () => {
   }, [cachedCourts, incomingCourtName]);
 
   useEffect(() => {
-    const handleCourtMessage = (event: MessageEvent) => {
-      if (!TRUSTED_COURT_MESSAGE_ORIGINS.has(event.origin)) {
+    if (!isEmbed) {
+      return;
+    }
+
+    const handleEmbedMessage = (event: MessageEvent) => {
+      if (!TRUSTED_EMBED_MESSAGE_ORIGINS.has(event.origin)) {
         return;
       }
 
-      const courtName = getCourtNameFromMessage(event.data);
-      if (courtName) {
-        setIncomingCourtName(courtName);
+      const message = getEmbedMessage(event.data);
+      if (!message) {
+        return;
+      }
+
+      if (message.courtName) {
+        setIncomingCourtName(message.courtName);
+      }
+
+      if (message.type === 'openFilters') {
+        pendingFiltersOpenRef.current = true;
+        if (embedUiReady) {
+          setFiltersOpen(prev => (prev ? prev : true));
+        }
       }
     };
 
-    window.addEventListener('message', handleCourtMessage);
-    return () => window.removeEventListener('message', handleCourtMessage);
-  }, []);
+    window.addEventListener('message', handleEmbedMessage);
+    return () => window.removeEventListener('message', handleEmbedMessage);
+  }, [embedUiReady, isEmbed]);
+
+  useEffect(() => {
+    if (!isEmbed || !embedUiReady || !pendingFiltersOpenRef.current) {
+      return;
+    }
+
+    pendingFiltersOpenRef.current = false;
+    setFiltersOpen(prev => (prev ? prev : true));
+  }, [embedUiReady, isEmbed, loadingFilterOptions, searchType]);
 
   // Embed mode setup: apply html class for scrollbar override, hide Bitrix24
   useEffect(() => {
