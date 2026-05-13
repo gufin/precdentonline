@@ -30,7 +30,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  const theme: Theme = isAllCourtsEmbed ? 'allcourts' : isEmbed ? 'light' : 'dark';
+  const theme: Theme = isEmbed ? 'light' : 'dark';
   const t = themes[theme];
 
   return (
